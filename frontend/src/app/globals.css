@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Base styles */
+html {
+  font-family: Inter, system-ui, sans-serif;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900;
+}
+
+/* Focus ring */
+*:focus-visible {
+  @apply outline-none ring-2 ring-primary-400 ring-offset-2;
+}

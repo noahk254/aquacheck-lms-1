@@ -1,0 +1,10 @@
+DATABASE_URL=postgresql://lims_user:lims_pass@db:5432/lims_db
+SECRET_KEY=your-secret-key-here-change-in-production
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=480
+POSTGRES_USER=lims_user
+POSTGRES_PASSWORD=lims_pass
+POSTGRES_DB=lims_db
+PGADMIN_EMAIL=admin@aquacheck.com
+PGADMIN_PASSWORD=admin123
+NEXT_PUBLIC_API_URL=http://localhost:8000
