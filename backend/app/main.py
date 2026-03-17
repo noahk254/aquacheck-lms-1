@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import OperationalError
+from sqlalchemy import text
 
 from app.database import engine, Base, SessionLocal
 from app.models import *  # noqa: F401,F403 — ensure all models are registered
@@ -10,7 +11,6 @@ from app.routers import (
     users,
     customers,
     contracts,
-    methods,
     samples,
     test_results,
     equipment,
@@ -18,6 +18,7 @@ from app.routers import (
     complaints,
     nonconformities,
     quality,
+    test_catalog,
 )
 
 app = FastAPI(
@@ -37,8 +38,9 @@ app.add_middleware(
 API_PREFIX = "/api/v1"
 
 for router_module in [
-    auth, users, customers, contracts, methods, samples,
+    auth, users, customers, contracts, samples,
     test_results, equipment, reports, complaints, nonconformities, quality,
+    test_catalog,
 ]:
     app.include_router(router_module.router, prefix=API_PREFIX)
 
@@ -63,10 +65,72 @@ def seed_admin(db):
         print("[LIMS] Admin user already exists.")
 
 
+def ensure_schema_compatibility():
+    with engine.begin() as connection:
+        # samples.contract_id — allow standalone samples
+        is_nullable = connection.execute(
+            text(
+                """
+                SELECT is_nullable
+                FROM information_schema.columns
+                WHERE table_name = 'samples' AND column_name = 'contract_id'
+                """
+            )
+        ).scalar()
+        if is_nullable == "NO":
+            connection.execute(text("ALTER TABLE samples ALTER COLUMN contract_id DROP NOT NULL"))
+            print("[LIMS] Updated samples.contract_id to allow standalone samples.")
+
+        # test_results.method_id — allow catalog-based results without a method FK
+        method_nullable = connection.execute(
+            text(
+                """
+                SELECT is_nullable
+                FROM information_schema.columns
+                WHERE table_name = 'test_results' AND column_name = 'method_id'
+                """
+            )
+        ).scalar()
+        if method_nullable == "NO":
+            connection.execute(text("ALTER TABLE test_results ALTER COLUMN method_id DROP NOT NULL"))
+            print("[LIMS] Updated test_results.method_id to allow catalog-only results.")
+
+        # test_results.catalog_item_id — add if not present
+        col_exists = connection.execute(
+            text(
+                """
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'test_results' AND column_name = 'catalog_item_id'
+                """
+            )
+        ).scalar()
+        if not col_exists:
+            connection.execute(text(
+                "ALTER TABLE test_results ADD COLUMN catalog_item_id INTEGER REFERENCES test_catalog(id)"
+            ))
+            print("[LIMS] Added test_results.catalog_item_id column.")
+
+        # samples.requested_test_ids — add JSONB column if not present
+        rti_exists = connection.execute(
+            text(
+                """
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'samples' AND column_name = 'requested_test_ids'
+                """
+            )
+        ).scalar()
+        if not rti_exists:
+            connection.execute(text(
+                "ALTER TABLE samples ADD COLUMN requested_test_ids JSONB DEFAULT '[]'::jsonb"
+            ))
+            print("[LIMS] Added samples.requested_test_ids column.")
+
+
 @app.on_event("startup")
 def on_startup():
     try:
         Base.metadata.create_all(bind=engine)
+        ensure_schema_compatibility()
         print("[LIMS] Database tables ensured.")
     except OperationalError as e:
         print(f"[LIMS] WARNING: Could not create tables: {e}")
@@ -75,6 +139,12 @@ def on_startup():
     db = SessionLocal()
     try:
         seed_admin(db)
+        from app.routers.test_catalog import seed_catalog
+        added = seed_catalog(db)
+        if added:
+            print(f"[LIMS] Seeded {added} dialysis water test catalog items.")
+        else:
+            print("[LIMS] Test catalog already up to date.")
     finally:
         db.close()
 

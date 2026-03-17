@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.deps import get_db, get_current_user
 from app.models.user import User
+from app.models.contract import Contract
 from app.models.sample import Sample
 from app.schemas.sample import SampleCreate, SampleUpdate, SampleOut, CustodyEntry
 from app.services.audit import log_action
@@ -29,10 +30,16 @@ def create_sample(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    sample_data = payload.model_dump()
+    if payload.contract_id is not None:
+        contract = db.query(Contract).filter(Contract.id == payload.contract_id).first()
+        if not contract:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
+
     sample_code = _next_sample_code(db)
     barcode = generate_barcode(sample_code)
     sample = Sample(
-        **payload.model_dump(),
+        **sample_data,
         sample_code=sample_code,
         received_by=current_user.id,
         barcode_data=barcode,
@@ -69,7 +76,12 @@ def update_sample(
     sample = db.query(Sample).filter(Sample.id == sample_id).first()
     if not sample:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sample not found")
-    for k, v in payload.model_dump(exclude_unset=True).items():
+    update_data = payload.model_dump(exclude_unset=True)
+    if "contract_id" in update_data and update_data["contract_id"] is not None:
+        contract = db.query(Contract).filter(Contract.id == update_data["contract_id"]).first()
+        if not contract:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
+    for k, v in update_data.items():
         setattr(sample, k, v)
     db.commit()
     db.refresh(sample)

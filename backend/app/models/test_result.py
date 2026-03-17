@@ -18,7 +18,8 @@ class TestResult(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     sample_id = Column(Integer, ForeignKey("samples.id"), nullable=False)
-    method_id = Column(Integer, ForeignKey("methods.id"), nullable=False)
+    method_id = Column(Integer, ForeignKey("methods.id"), nullable=True)
+    catalog_item_id = Column(Integer, ForeignKey("test_catalog.id"), nullable=True)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
     equipment_ids = Column(JSON, default=list)
     raw_observations = Column(JSON, default=dict)

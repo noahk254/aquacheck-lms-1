@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.deps import get_db, get_current_user, require_role
 from app.models.user import User, UserRole
 from app.models.contract import Contract, ContractStatus
+from app.models.customer import Customer
 from app.schemas.contract import ContractCreate, ContractUpdate, ContractOut
 from app.services.audit import log_action
 
@@ -28,6 +29,10 @@ def create_contract(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    customer = db.query(Customer).filter(Customer.id == payload.customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
+
     contract = Contract(
         **payload.model_dump(),
         contract_number=_next_contract_number(db),

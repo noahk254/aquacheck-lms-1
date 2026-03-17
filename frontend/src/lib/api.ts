@@ -1,9 +1,9 @@
 import axios, { AxiosInstance } from "axios";
 import { getToken, logout } from "./auth";
 import type {
-  User, UserRole, Customer, Contract, Method, Sample, TestResult,
+  User, UserRole, Customer, Contract, Sample, TestResult,
   Equipment, Report, Complaint, Nonconformity, AuditLog,
-  PaginatedResponse, LoginResponse, QualityDashboard,
+  PaginatedResponse, LoginResponse, QualityDashboard, TestCatalogItem, TestCategory,
 } from "./types";
 
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000") + "/api/v1";
@@ -66,16 +66,6 @@ export const contractsApi = {
   update: (id: number, data: Partial<Contract>) => api.put<Contract>(`/contracts/${id}`, data),
   review: (id: number) => api.post<Contract>(`/contracts/${id}/review`),
   approve: (id: number) => api.post<Contract>(`/contracts/${id}/approve`),
-};
-
-// ─── Methods ──────────────────────────────────────────────────────────────────
-export const methodsApi = {
-  list: () => api.get<Method[]>("/methods"),
-  get: (id: number) => api.get<Method>(`/methods/${id}`),
-  create: (data: Partial<Method>) => api.post<Method>("/methods", data),
-  update: (id: number, data: Partial<Method>) => api.put<Method>(`/methods/${id}`, data),
-  validate: (id: number) => api.post<Method>(`/methods/${id}/validate`),
-  revisions: (id: number) => api.get(`/methods/${id}/revisions`),
 };
 
 // ─── Samples ──────────────────────────────────────────────────────────────────
@@ -144,4 +134,15 @@ export const qualityApi = {
   dashboard: () => api.get<QualityDashboard>("/quality/dashboard"),
   auditLogs: (params?: { skip?: number; limit?: number; resource_type?: string }) =>
     api.get<PaginatedResponse<AuditLog>>("/quality/audit-logs", { params }),
+};
+
+// ─── Test Catalog ─────────────────────────────────────────────────────────────
+export const testCatalogApi = {
+  list: (params?: { category?: TestCategory; active_only?: boolean }) =>
+    api.get<TestCatalogItem[]>("/test-catalog", { params }),
+  create: (data: Partial<TestCatalogItem>) => api.post<TestCatalogItem>("/test-catalog", data),
+  update: (id: number, data: Partial<TestCatalogItem>) =>
+    api.put<TestCatalogItem>(`/test-catalog/${id}`, data),
+  delete: (id: number) => api.delete(`/test-catalog/${id}`),
+  seed: () => api.post<{ added: number; message: string }>("/test-catalog/seed"),
 };

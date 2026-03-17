@@ -1,5 +1,7 @@
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
+export type TestCategory = "physicochemical" | "microbiological";
+
 export type UserRole =
   | "admin"
   | "manager"
@@ -16,6 +18,18 @@ export type ContractStatus =
   | "completed";
 
 export type MethodStatus = "draft" | "validated" | "deprecated";
+// Method type kept for DB compatibility — no longer exposed in UI
+export interface Method {
+  id: number;
+  code: string;
+  name: string;
+  description?: string;
+  standard_reference?: string;
+  version: string;
+  status: MethodStatus;
+  created_at: string;
+  updated_at: string;
+}
 
 export type SampleStatus =
   | "received"
@@ -61,6 +75,20 @@ export type NonconformityStatus =
   | "closed";
 
 export type RiskLevel = "low" | "medium" | "high";
+
+export interface TestCatalogItem {
+  id: number;
+  name: string;
+  category: TestCategory;
+  unit?: string;
+  method_name?: string;
+  standard_limit?: string;
+  description?: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 // ─── Models ──────────────────────────────────────────────────────────────────
 
@@ -123,7 +151,7 @@ export interface Method {
 export interface Sample {
   id: number;
   sample_code: string;
-  contract_id: number;
+  contract_id?: number;
   description?: string;
   sample_type?: string;
   collection_date?: string;
@@ -137,6 +165,7 @@ export interface Sample {
   disposal_date?: string;
   disposal_method?: string;
   chain_of_custody?: CustodyEntry[];
+  requested_test_ids?: number[];
   created_at: string;
   updated_at: string;
 }
@@ -191,7 +220,43 @@ export interface Report {
   contract_id: number;
   report_type: ReportType;
   status: ReportStatus;
-  content?: Record<string, unknown>;
+  content?: {
+    sample_id?: number;
+    client_reference?: string;
+    report_title?: string;
+    overall_status?: string;
+    classification?: string;
+    submitted_by?: string;
+    client_contact?: string;
+    sampled_by?: string;
+    sampling_location?: string;
+    sampling_date?: string;
+    received_on?: string;
+    analysis_date?: string;
+    report_issued_on?: string;
+    sample_lab_id?: string;
+    specification_title?: string;
+    ns_definition?: string;
+    disclaimer?: string;
+    authorizer_name?: string;
+    authorizer_title?: string;
+    analyst_name?: string;
+    analyst_title?: string;
+    result_sections?: Array<{
+      title: string;
+      specification_header?: string;
+      rows: Array<{
+        parameter: string;
+        method: string;
+        result: string;
+        specification: string;
+        remarks: string;
+      }>;
+    }>;
+    final_comment?: string;
+    sample_description?: string;
+    [key: string]: unknown;
+  };
   issued_by?: number;
   issued_at?: string;
   pdf_path?: string;

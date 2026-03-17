@@ -1,11 +1,14 @@
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 from app.deps import get_db, get_current_user, require_role
 from app.models.user import User, UserRole
+from app.models.contract import Contract
+from app.models.sample import Sample, SampleStatus
 from app.models.test_result import TestResult, TestStatus
-from app.schemas.test_result import TestResultCreate, TestResultUpdate, TestResultOut, UncertaintyResult
+from app.models.test_catalog import TestCatalogItem
+from app.schemas.test_result import TestResultCreate, TestResultUpdate, TestResultOut, UncertaintyResult, BulkResultCreate
 from app.services.audit import log_action
 from app.services.uncertainty import calculate_uncertainty
 
@@ -23,9 +26,23 @@ def create_test_result(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    sample = db.query(Sample).filter(Sample.id == payload.sample_id).first()
+    if not sample:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sample not found")
+    if not sample.contract_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Sample must be linked to a contract before testing")
+
+    contract = db.query(Contract).filter(Contract.id == sample.contract_id).first()
+    if not contract:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Sample contract not found")
+
     tr = TestResult(**payload.model_dump(), started_at=datetime.now(timezone.utc))
     if tr.status == TestStatus.pending:
         tr.status = TestStatus.in_progress
+
+    if sample.status in {SampleStatus.received, SampleStatus.registered, SampleStatus.assigned}:
+        sample.status = SampleStatus.in_testing
+
     db.add(tr)
     db.commit()
     db.refresh(tr)

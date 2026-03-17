@@ -6,7 +6,8 @@ from app.models.test_result import TestStatus
 
 class TestResultBase(BaseModel):
     sample_id: int
-    method_id: int
+    method_id: Optional[int] = None
+    catalog_item_id: Optional[int] = None
     assigned_to: Optional[int] = None
     equipment_ids: Optional[List[int]] = []
     raw_observations: Optional[Dict[str, Any]] = {}
@@ -32,6 +33,18 @@ class TestResultUpdate(BaseModel):
     status: Optional[TestStatus] = None
     notes: Optional[str] = None
     amendments: Optional[List[Any]] = None
+
+
+class BulkResultRow(BaseModel):
+    catalog_item_id: int
+    result_value: Optional[str] = None
+    notes: Optional[str] = None
+    compliance: Optional[str] = None
+
+
+class BulkResultCreate(BaseModel):
+    sample_id: int
+    rows: List[BulkResultRow]
 
 
 class TestResultOut(TestResultBase):

@@ -50,7 +50,7 @@ export default function SamplesPage() {
   const columns = [
     { key: "sample_code", header: "Sample Code", render: (r: Sample) => <span className="font-mono font-medium text-primary-600">{r.sample_code}</span> },
     { key: "sample_type", header: "Type", render: (r: Sample) => <span>{r.sample_type ?? "—"}</span> },
-    { key: "contract_id", header: "Contract", render: (r: Sample) => <span className="text-gray-500">#{r.contract_id}</span> },
+    { key: "contract_id", header: "Contract", render: (r: Sample) => <span className="text-gray-500">{r.contract_id ? `#${r.contract_id}` : "Standalone"}</span> },
     { key: "status", header: "Status", render: (r: Sample) => <SampleStatusBadge status={r.status} /> },
     { key: "storage_condition", header: "Storage", render: (r: Sample) => <span className="text-gray-600 text-xs">{r.storage_condition ?? "—"}</span> },
     { key: "received_at", header: "Received", render: (r: Sample) => <span className="text-gray-500 text-xs">{format(new Date(r.received_at), "MMM d, yyyy")}</span> },
@@ -108,7 +108,12 @@ export default function SamplesPage() {
 
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Register Sample" size="lg">
         <SampleForm
-          onSubmit={async (data) => { await createMutation.mutateAsync(data as Partial<Sample>); }}
+          onSubmit={async (data) => {
+            await createMutation.mutateAsync({
+              ...data,
+              contract_id: data.contract_id || undefined,
+            } as Partial<Sample>);
+          }}
           onCancel={() => setShowCreate(false)}
           loading={createMutation.isPending}
         />

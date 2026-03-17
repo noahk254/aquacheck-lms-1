@@ -10,8 +10,8 @@ import { Table } from "@/components/ui/Table";
 import { Modal } from "@/components/ui/Modal";
 import { ContractStatusBadge } from "@/components/ui/Badge";
 import { ContractForm } from "@/components/forms/ContractForm";
-import { contractsApi } from "@/lib/api";
-import type { Contract } from "@/lib/types";
+import { contractsApi, customersApi } from "@/lib/api";
+import type { Contract, Customer } from "@/lib/types";
 
 export default function ContractsPage() {
   const qc = useQueryClient();
@@ -22,6 +22,10 @@ export default function ContractsPage() {
   const { data: contracts = [], isLoading } = useQuery({
     queryKey: ["contracts"],
     queryFn: () => contractsApi.list().then((r) => r.data),
+  });
+  const { data: customers = [] } = useQuery({
+    queryKey: ["customers"],
+    queryFn: () => customersApi.list().then((r) => r.data),
   });
 
   const createMutation = useMutation({
@@ -51,9 +55,15 @@ export default function ContractsPage() {
     return matchSearch && matchStatus;
   });
 
+  const customerNameById = new Map<number, string>(customers.map((customer: Customer) => [customer.id, customer.name]));
+
   const columns = [
     { key: "contract_number", header: "Contract #", render: (r: Contract) => <span className="font-mono font-medium text-primary-600">{r.contract_number}</span> },
-    { key: "customer_id", header: "Customer ID", render: (r: Contract) => <span className="text-gray-600">#{r.customer_id}</span> },
+    {
+      key: "customer_id",
+      header: "Customer",
+      render: (r: Contract) => <span className="text-gray-600">{customerNameById.get(r.customer_id) ?? `#${r.customer_id}`}</span>,
+    },
     { key: "title", header: "Title", render: (r: Contract) => <span className="max-w-xs truncate block">{r.title}</span> },
     { key: "status", header: "Status", render: (r: Contract) => <ContractStatusBadge status={r.status} /> },
     { key: "created_at", header: "Created", render: (r: Contract) => <span className="text-gray-500 text-xs">{format(new Date(r.created_at), "MMM d, yyyy")}</span> },

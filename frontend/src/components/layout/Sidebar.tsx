@@ -4,10 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  Users,
   FileText,
   FlaskConical,
-  BookOpen,
-  Microscope,
   Wrench,
   ClipboardList,
   MessageSquareWarning,
@@ -15,16 +14,17 @@ import {
   ShieldCheck,
   Settings,
   LogOut,
+  BookMarked,
+  Library,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrentUser, logout } from "@/lib/auth";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Customers", href: "/dashboard/customers", icon: Users },
   { label: "Contracts", href: "/dashboard/contracts", icon: FileText },
   { label: "Samples", href: "/dashboard/samples", icon: FlaskConical },
-  { label: "Methods", href: "/dashboard/methods", icon: BookOpen },
-  { label: "Tests", href: "/dashboard/tests", icon: Microscope },
   { label: "Equipment", href: "/dashboard/equipment", icon: Wrench },
   { label: "Reports", href: "/dashboard/reports", icon: ClipboardList },
   { label: "Complaints", href: "/dashboard/complaints", icon: MessageSquareWarning },
@@ -33,6 +33,12 @@ const navItems = [
 ];
 
 const adminItems = [{ label: "Admin", href: "/dashboard/admin", icon: Settings }];
+
+const catalogItems = [
+  { label: "Test Catalog", href: "/dashboard/catalog/tests", icon: Library },
+];
+
+const settingsItems = [{ label: "Docs", href: "/dashboard/settings/docs", icon: BookMarked }];
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -93,6 +99,50 @@ export function Sidebar() {
             ))}
           </div>
         )}
+
+        {/* Catalog */}
+        <div className="pt-3 mt-3 border-t border-dark-700">
+          <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+            Catalog
+          </p>
+          {catalogItems.map(({ label, href, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                isActive(href)
+                  ? "bg-primary-400 text-white"
+                  : "text-gray-300 hover:bg-dark-700 hover:text-white"
+              )}
+            >
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              {label}
+            </Link>
+          ))}
+        </div>
+
+        {/* Settings */}
+        <div className="pt-3 mt-3 border-t border-dark-700">
+          <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+            Settings
+          </p>
+          {settingsItems.map(({ label, href, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                isActive(href)
+                  ? "bg-primary-400 text-white"
+                  : "text-gray-300 hover:bg-dark-700 hover:text-white"
+              )}
+            >
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              {label}
+            </Link>
+          ))}
+        </div>
       </nav>
 
       {/* User section */}

@@ -20,7 +20,7 @@ class Sample(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     sample_code = Column(String, unique=True, index=True, nullable=False)
-    contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=False)
+    contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=True)
     description = Column(Text, nullable=True)
     sample_type = Column(String, nullable=True)
     collection_date = Column(Date, nullable=True)
@@ -40,6 +40,8 @@ class Sample(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+    requested_test_ids = Column(JSON, default=list)
 
     contract = relationship("Contract", back_populates="samples")
     receiver = relationship("User", foreign_keys=[received_by])
