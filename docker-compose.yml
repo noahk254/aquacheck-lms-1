@@ -50,6 +50,8 @@ services:
       dockerfile: Dockerfile
     container_name: aquacheck_backend
     restart: unless-stopped
+    env_file:
+      - env
     ports:
       - "8088:8000"
     environment:
@@ -70,13 +72,15 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8088}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://35.154.192.45:8088}
     container_name: aquacheck_frontend
     restart: unless-stopped
+    env_file:
+      - env
     ports:
       - "3030:3000"
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8088}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://35.154.192.45:8088}
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
