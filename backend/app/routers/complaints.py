@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.deps import get_db, get_current_user
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.complaint import Complaint, ComplaintStatus
 from app.schemas.complaint import ComplaintCreate, ComplaintUpdate, ComplaintOut
 from app.services.audit import log_action
@@ -18,8 +18,11 @@ def _next_complaint_number(db: Session) -> str:
 
 
 @router.get("", response_model=List[ComplaintOut])
-def list_complaints(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return db.query(Complaint).order_by(Complaint.created_at.desc()).all()
+def list_complaints(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    q = db.query(Complaint)
+    if current_user.role == UserRole.customer and current_user.customer_id:
+        q = q.filter(Complaint.customer_id == current_user.customer_id)
+    return q.order_by(Complaint.created_at.desc()).all()
 
 
 @router.post("", response_model=ComplaintOut, status_code=status.HTTP_201_CREATED)
@@ -28,7 +31,16 @@ def create_complaint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    complaint = Complaint(**payload.model_dump(), complaint_number=_next_complaint_number(db))
+    complaint_data = payload.model_dump()
+    # For customer users, always use their own customer_id regardless of payload
+    if current_user.role == UserRole.customer:
+        if not current_user.customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Your account is not linked to a customer. Contact an administrator.",
+            )
+        complaint_data["customer_id"] = current_user.customer_id
+    complaint = Complaint(**complaint_data, complaint_number=_next_complaint_number(db))
     db.add(complaint)
     db.commit()
     db.refresh(complaint)

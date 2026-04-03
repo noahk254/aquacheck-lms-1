@@ -12,11 +12,14 @@ import { ComplaintStatusBadge } from "@/components/ui/Badge";
 import { ComplaintForm } from "@/components/forms/ComplaintForm";
 import { complaintsApi } from "@/lib/api";
 import type { Complaint } from "@/lib/types";
+import { getCurrentUser } from "@/lib/auth";
 
 export default function ComplaintsPage() {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState("");
+  const currentUser = getCurrentUser();
+  const isCustomer = currentUser?.role === "customer";
 
   const { data: complaints = [], isLoading } = useQuery({
     queryKey: ["complaints"],
@@ -54,12 +57,12 @@ export default function ComplaintsPage() {
       key: "actions", header: "Actions",
       render: (r: Complaint) => (
         <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-          {r.status === "received" && (
+          {!isCustomer && r.status === "received" && (
             <Button size="sm" variant="secondary" onClick={() => investigateMutation.mutate(r.id)} loading={investigateMutation.isPending}>
               Investigate
             </Button>
           )}
-          {r.status !== "closed" && (
+          {!isCustomer && r.status !== "closed" && (
             <Button size="sm" variant="danger" onClick={() => closeMutation.mutate(r.id)} loading={closeMutation.isPending}>
               Close
             </Button>
@@ -81,7 +84,7 @@ export default function ComplaintsPage() {
           <Button onClick={() => setShowCreate(true)}><Plus className="w-4 h-4" />Submit Complaint</Button>
         </div>
 
-        <Table columns={columns as never} data={filtered as never} loading={isLoading} emptyMessage="No complaints filed." keyExtractor={(r) => (r as unknown as Complaint).id} />
+        <Table<Complaint> columns={columns} data={filtered} loading={isLoading} emptyMessage="No complaints filed." keyExtractor={(r) => r.id} />
       </div>
 
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Submit Complaint" size="lg">
@@ -89,6 +92,7 @@ export default function ComplaintsPage() {
           onSubmit={async (data) => { await createMutation.mutateAsync(data as Partial<Complaint>); }}
           onCancel={() => setShowCreate(false)}
           loading={createMutation.isPending}
+          customerId={isCustomer && currentUser?.customer_id ? currentUser.customer_id : undefined}
         />
       </Modal>
     </DashboardLayout>

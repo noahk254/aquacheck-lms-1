@@ -4,10 +4,10 @@ import type {
   User, UserRole, Customer, Contract, Sample, TestResult,
   Equipment, Report, Complaint, Nonconformity, AuditLog,
   PaginatedResponse, LoginResponse, QualityDashboard, TestCatalogItem, TestCategory,
-  Method,
+  Method, Document, DocumentCategory,
 } from "./types";
 
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000") + "/api/v1";
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL) + "/api/v1";
 
 const api: AxiosInstance = axios.create({ baseURL: BASE_URL });
 
@@ -38,7 +38,7 @@ export const authApi = {
   login: (email: string, password: string) =>
     api.post<LoginResponse>("/auth/login", { email, password }),
   me: () => api.get<User>("/auth/me"),
-  register: (data: { email: string; password: string; full_name: string; role: UserRole }) =>
+  register: (data: { email: string; password: string; full_name: string; role: UserRole; customer_id?: number; is_contact_person?: boolean }) =>
     api.post<User>("/auth/register", data),
 };
 
@@ -97,6 +97,8 @@ export const testResultsApi = {
 export const methodsApi = {
   list: () => api.get<Method[]>("/methods"),
   get: (id: number) => api.get<Method>(`/methods/${id}`),
+  create: (data: Partial<Method>) => api.post<Method>("/methods", data),
+  validate: (id: number) => api.post<Method>(`/methods/${id}/validate`),
 };
 
 // ─── Equipment ────────────────────────────────────────────────────────────────
@@ -143,6 +145,31 @@ export const qualityApi = {
   dashboard: () => api.get<QualityDashboard>("/quality/dashboard"),
   auditLogs: (params?: { skip?: number; limit?: number; resource_type?: string }) =>
     api.get<PaginatedResponse<AuditLog>>("/quality/audit-logs", { params }),
+};
+
+// ─── Documents (SOPs & Master Lists) ─────────────────────────────────────────
+export const documentsApi = {
+  list: (category?: DocumentCategory) =>
+    api.get<Document[]>("/documents", { params: category ? { category } : undefined }),
+  get: (id: number) => api.get<Document>(`/documents/${id}`),
+  update: (id: number, data: Partial<Document>) => api.put<Document>(`/documents/${id}`, data),
+  /** Fetch the generated PDF as a blob URL for iframe preview. */
+  previewBlobUrl: (id: number): Promise<string> =>
+    api.get(`/documents/${id}/pdf`, { responseType: "blob" }).then((res) =>
+      window.URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }))
+    ),
+  /** Trigger a file-download of the generated PDF. */
+  downloadPdf: (id: number, code: string, version: string) =>
+    api
+      .get(`/documents/${id}/pdf`, { params: { download: true }, responseType: "blob" })
+      .then((res) => {
+        const url = window.URL.createObjectURL(new Blob([res.data]));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${code}_v${version}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      }),
 };
 
 // ─── Test Catalog ─────────────────────────────────────────────────────────────

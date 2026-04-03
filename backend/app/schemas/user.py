@@ -9,6 +9,8 @@ class UserBase(BaseModel):
     full_name: str
     role: UserRole = UserRole.technician
     is_active: bool = True
+    customer_id: Optional[int] = None
+    is_contact_person: bool = False
 
 
 class UserCreate(UserBase):
@@ -20,6 +22,8 @@ class UserUpdate(BaseModel):
     role: Optional[UserRole] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None
+    customer_id: Optional[int] = None
+    is_contact_person: Optional[bool] = None
 
 
 class UserOut(UserBase):

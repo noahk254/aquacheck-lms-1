@@ -116,12 +116,12 @@ export default function CustomersPage() {
           </Button>
         </div>
 
-        <Table
-          columns={columns as never}
-          data={filtered as never}
+        <Table<Customer>
+          columns={columns}
+          data={filtered}
           loading={isLoading}
           emptyMessage="No customers found."
-          keyExtractor={(row) => (row as Customer).id}
+          keyExtractor={(row) => row.id}
         />
       </div>
 

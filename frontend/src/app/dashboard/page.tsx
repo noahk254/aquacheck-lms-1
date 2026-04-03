@@ -12,10 +12,141 @@ import {
 } from "recharts";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StatCard } from "@/components/ui/Card";
-import { qualityApi, samplesApi, contractsApi } from "@/lib/api";
+import { qualityApi, samplesApi, contractsApi, reportsApi } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
+import { getCurrentUser } from "@/lib/auth";
+import type { Report, Contract, Sample } from "@/lib/types";
 
+// ─── Customer Portal Dashboard ────────────────────────────────────────────────
+function CustomerDashboard() {
+  const { data: contracts = [] } = useQuery({
+    queryKey: ["contracts"],
+    queryFn: () => contractsApi.list().then((r) => r.data),
+  });
+
+  const { data: samples = [] } = useQuery({
+    queryKey: ["samples"],
+    queryFn: () => samplesApi.list().then((r) => r.data),
+  });
+
+  const { data: reports = [] } = useQuery({
+    queryKey: ["reports"],
+    queryFn: () => reportsApi.list().then((r) => r.data),
+  });
+
+  const router = useRouter();
+
+  const issuedReports = (reports as Report[]).filter((r) => r.status === "issued");
+  const activeContracts = (contracts as Contract[]).filter((c) => c.status === "approved");
+
+  return (
+    <DashboardLayout title="My Portal">
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard title="My Contracts" value={contracts.length} icon={<FileText className="w-5 h-5" />} color="blue" />
+        <StatCard title="Active Contracts" value={activeContracts.length} icon={<FileText className="w-5 h-5" />} color="green" />
+        <StatCard title="Samples" value={samples.length} icon={<FlaskConical className="w-5 h-5" />} color="yellow" />
+        <StatCard title="Reports Issued" value={issuedReports.length} icon={<Microscope className="w-5 h-5" />} color="blue" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent contracts */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900 text-sm">My Contracts</h3>
+            <Button size="sm" variant="outline" onClick={() => router.push("/dashboard/reports")}>
+              View Reports
+            </Button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm divide-y divide-gray-100">
+              <thead className="bg-gray-50">
+                <tr>
+                  {["Number", "Title", "Status", "Date"].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {(contracts as Contract[]).length === 0 ? (
+                  <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-400 text-sm">No contracts found.</td></tr>
+                ) : (
+                  (contracts as Contract[]).slice(0, 8).map((c) => (
+                    <tr key={c.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2.5 font-mono text-xs text-gray-700">{c.contract_number}</td>
+                      <td className="px-4 py-2.5 text-gray-800">{c.title}</td>
+                      <td className="px-4 py-2.5">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          c.status === "approved" ? "bg-green-100 text-green-700" :
+                          c.status === "draft" ? "bg-gray-100 text-gray-600" :
+                          "bg-yellow-100 text-yellow-700"
+                        }`}>{c.status}</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-400 text-xs">{format(new Date(c.created_at), "MMM d, yyyy")}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Recent reports */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h3 className="font-semibold text-gray-900 text-sm">Recent Reports</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm divide-y divide-gray-100">
+              <thead className="bg-gray-50">
+                <tr>
+                  {["Number", "Type", "Status", "Issued"].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {(reports as Report[]).length === 0 ? (
+                  <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-400 text-sm">No reports available yet.</td></tr>
+                ) : (
+                  (reports as Report[]).slice(0, 8).map((r) => (
+                    <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push("/dashboard/reports")}>
+                      <td className="px-4 py-2.5 font-mono text-xs text-gray-700">{r.report_number}</td>
+                      <td className="px-4 py-2.5 text-gray-600 text-xs capitalize">{r.report_type.replace("_", " ")}</td>
+                      <td className="px-4 py-2.5">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          r.status === "issued" ? "bg-green-100 text-green-700" :
+                          r.status === "draft" ? "bg-gray-100 text-gray-600" :
+                          "bg-yellow-100 text-yellow-700"
+                        }`}>{r.status}</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-400 text-xs">
+                        {r.issued_at ? format(new Date(r.issued_at), "MMM d, yyyy") : "—"}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+}
+
+// ─── Staff Dashboard ──────────────────────────────────────────────────────────
 export default function DashboardPage() {
+  const user = getCurrentUser();
+
+  if (user?.role === "customer") {
+    return <CustomerDashboard />;
+  }
+
+  return <StaffDashboard />;
+}
+
+function StaffDashboard() {
   const router = useRouter();
 
   const { data: qaDash } = useQuery({

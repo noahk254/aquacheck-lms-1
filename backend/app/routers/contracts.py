@@ -19,8 +19,11 @@ def _next_contract_number(db: Session) -> str:
 
 
 @router.get("", response_model=List[ContractOut])
-def list_contracts(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return db.query(Contract).order_by(Contract.created_at.desc()).all()
+def list_contracts(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    q = db.query(Contract)
+    if current_user.role == UserRole.customer and current_user.customer_id:
+        q = q.filter(Contract.customer_id == current_user.customer_id)
+    return q.order_by(Contract.created_at.desc()).all()
 
 
 @router.post("", response_model=ContractOut, status_code=status.HTTP_201_CREATED)

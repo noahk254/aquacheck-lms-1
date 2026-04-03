@@ -12,12 +12,15 @@ import { Modal } from "@/components/ui/Modal";
 import { SampleStatusBadge } from "@/components/ui/Badge";
 import { SampleForm } from "@/components/forms/SampleForm";
 import { samplesApi } from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
 import type { Sample } from "@/lib/types";
 import TestReportPrint from "@/components/TestReportPrint";
 
 export default function SamplesPage() {
   const qc = useQueryClient();
   const router = useRouter();
+  const currentUser = getCurrentUser();
+  const isCustomer = currentUser?.role === "customer";
   const [showCreate, setShowCreate] = useState(false);
   const [barcodeModal, setBarcodeModal] = useState<{ code: string; b64: string } | null>(null);
   const [printSampleId, setPrintSampleId] = useState<number | null>(null);
@@ -106,12 +109,12 @@ export default function SamplesPage() {
           </Button>
         </div>
 
-        <Table
-          columns={columns as never}
-          data={filtered as never}
+        <Table<Sample>
+          columns={columns}
+          data={filtered}
           loading={isLoading}
           emptyMessage="No samples registered."
-          keyExtractor={(r) => (r as unknown as Sample).id}
+          keyExtractor={(r) => r.id}
         />
       </div>
 
@@ -120,11 +123,13 @@ export default function SamplesPage() {
           onSubmit={async (data) => {
             await createMutation.mutateAsync({
               ...data,
+              customer_id: data.customer_id || undefined,
               contract_id: data.contract_id || undefined,
             } as Partial<Sample>);
           }}
           onCancel={() => setShowCreate(false)}
           loading={createMutation.isPending}
+          customerId={isCustomer && currentUser?.customer_id ? currentUser.customer_id : undefined}
         />
       </Modal>
 

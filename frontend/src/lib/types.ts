@@ -98,6 +98,8 @@ export interface User {
   full_name: string;
   role: UserRole;
   is_active: boolean;
+  customer_id?: number;
+  is_contact_person?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -152,6 +154,7 @@ export interface Method {
 export interface Sample {
   id: number;
   sample_code: string;
+  customer_id?: number;
   contract_id?: number;
   description?: string;
   sample_type?: string;
@@ -334,4 +337,26 @@ export interface QualityDashboard {
   open_complaints: number;
   samples_in_testing: number;
   equipment_calibration_due: number;
+}
+
+export type DocumentCategory = "sop" | "masterlist";
+export type DocumentStatus = "active" | "under_review" | "superseded";
+
+export interface DocumentSection {
+  heading: string;
+  body: string;
+}
+
+export interface Document {
+  id: number;
+  code: string;
+  title: string;
+  category: DocumentCategory;
+  version: string;
+  status: DocumentStatus;
+  effective_date?: string;
+  description?: string;
+  content: DocumentSection[];
+  created_at: string;
+  updated_at: string;
 }

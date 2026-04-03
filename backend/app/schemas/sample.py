@@ -5,6 +5,7 @@ from app.models.sample import SampleStatus
 
 
 class SampleBase(BaseModel):
+    customer_id: Optional[int] = None
     contract_id: Optional[int] = Field(None, gt=0)
     description: Optional[str] = None
     sample_type: Optional[str] = None

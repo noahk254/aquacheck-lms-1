@@ -6,11 +6,15 @@ import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import { Input, Select, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { contractsApi, testCatalogApi } from "@/lib/api";
+import { contractsApi, customersApi, testCatalogApi } from "@/lib/api";
 import type { TestCatalogItem } from "@/lib/types";
 import { FlaskConical, Microscope } from "lucide-react";
 
 const schema = z.object({
+  customer_id: z.preprocess(
+    (value) => (value === "" || value === null || value === undefined ? undefined : value),
+    z.coerce.number().int().positive().optional()
+  ),
   contract_id: z.preprocess(
     (value) => (value === "" || value === null || value === undefined ? undefined : value),
     z.coerce.number().int().positive().optional()
@@ -30,6 +34,7 @@ interface SampleFormProps {
   onSubmit: (data: FormData) => Promise<void>;
   onCancel: () => void;
   loading?: boolean;
+  customerId?: number;
 }
 
 // ─── Test picker component ────────────────────────────────────────────────────
@@ -148,7 +153,15 @@ function TestPicker({ control, catalogItems }: { control: Control<FormData>; cat
 
 // ─── Main form ────────────────────────────────────────────────────────────────
 
-export function SampleForm({ onSubmit, onCancel, loading }: SampleFormProps) {
+export function SampleForm({ onSubmit, onCancel, loading, customerId }: SampleFormProps) {
+  const isCustomer = customerId !== undefined;
+
+  const { data: customers = [] } = useQuery({
+    queryKey: ["customers"],
+    queryFn: () => customersApi.list().then((r) => r.data),
+    enabled: !isCustomer,
+  });
+
   const { data: contracts = [] } = useQuery({
     queryKey: ["contracts"],
     queryFn: () => contractsApi.list().then((r) => r.data),
@@ -163,18 +176,38 @@ export function SampleForm({ onSubmit, onCancel, loading }: SampleFormProps) {
     register,
     handleSubmit,
     control,
+    watch,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { requested_test_ids: [] },
+    defaultValues: { customer_id: customerId, requested_test_ids: [] },
   });
+
+  const selectedCustomerId = watch("customer_id");
+  const effectiveCustomerId = isCustomer ? customerId : selectedCustomerId;
+
+  const filteredContracts = effectiveCustomerId
+    ? contracts.filter((c) => c.customer_id === effectiveCustomerId)
+    : contracts;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {/* Customer selector — hidden for customer-role users */}
+      {!isCustomer && (
+        <Select label="Customer (optional)" error={errors.customer_id?.message} {...register("customer_id")}>
+          <option value="">No specific customer</option>
+          {customers.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
+      )}
+
       <div className="space-y-2">
         <Select label="Contract (optional)" error={errors.contract_id?.message} {...register("contract_id")}>
           <option value="">Standalone sample (no contract)</option>
-          {contracts.map((c) => (
+          {filteredContracts.map((c) => (
             <option key={c.id} value={c.id}>
               {c.contract_number} — {c.title}
             </option>

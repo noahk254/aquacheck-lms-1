@@ -21,12 +21,17 @@ interface ComplaintFormProps {
   onSubmit: (data: FormData) => Promise<void>;
   onCancel: () => void;
   loading?: boolean;
+  /** When provided (customer role), customer_id is fixed and the dropdown is hidden */
+  customerId?: number;
 }
 
-export function ComplaintForm({ onSubmit, onCancel, loading }: ComplaintFormProps) {
+export function ComplaintForm({ onSubmit, onCancel, loading, customerId }: ComplaintFormProps) {
+  const isCustomer = customerId !== undefined;
+
   const { data: customers = [] } = useQuery({
     queryKey: ["customers"],
     queryFn: () => customersApi.list().then((r) => r.data),
+    enabled: !isCustomer,
   });
   const { data: contracts = [] } = useQuery({
     queryKey: ["contracts"],
@@ -37,12 +42,15 @@ export function ComplaintForm({ onSubmit, onCancel, loading }: ComplaintFormProp
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormData>({ resolver: zodResolver(schema) });
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: isCustomer ? { customer_id: customerId } : undefined,
+  });
 
   const handleFormSubmit = (data: FormData) => {
-    // Convert empty string / 0 contract_id to undefined
     const cleaned = {
       ...data,
+      customer_id: isCustomer ? customerId! : data.customer_id,
       contract_id: data.contract_id || undefined,
     };
     return onSubmit(cleaned as FormData);
@@ -50,14 +58,16 @@ export function ComplaintForm({ onSubmit, onCancel, loading }: ComplaintFormProp
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
-      <Select label="Customer" error={errors.customer_id?.message} {...register("customer_id")}>
-        <option value="">Select customer...</option>
-        {customers.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </Select>
+      {!isCustomer && (
+        <Select label="Customer" error={errors.customer_id?.message} {...register("customer_id")}>
+          <option value="">Select customer...</option>
+          {customers.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
+      )}
 
       <Select label="Related Contract (optional)" {...register("contract_id")}>
         <option value="">No contract</option>

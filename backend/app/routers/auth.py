@@ -34,22 +34,29 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 def register(
     payload: UserCreate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_role(UserRole.admin)),
+    current_admin: User = Depends(require_role(UserRole.admin)),
 ):
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    if payload.customer_id is not None:
+        from app.models.customer import Customer
+        customer = db.query(Customer).filter(Customer.id == payload.customer_id).first()
+        if not customer:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found")
     new_user = User(
         email=payload.email,
         full_name=payload.full_name,
         hashed_password=get_password_hash(payload.password),
         role=payload.role,
         is_active=payload.is_active,
+        customer_id=payload.customer_id,
+        is_contact_person=payload.is_contact_person,
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    log_action(db, None, "CREATE_USER", "user", str(new_user.id), new_value={"email": new_user.email})
+    log_action(db, current_admin.id, "CREATE_USER", "user", str(new_user.id), new_value={"email": new_user.email, "role": new_user.role})
     return new_user
 
 

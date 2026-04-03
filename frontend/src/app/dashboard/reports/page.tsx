@@ -15,7 +15,7 @@ import type { Report, Sample } from "@/lib/types";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { getToken } from "@/lib/auth";
+import { getToken, getCurrentUser } from "@/lib/auth";
 
 const schema = z.object({
   contract_id: z.coerce.number().min(1, "Select a contract"),
@@ -54,6 +54,8 @@ type FormData = z.infer<typeof schema>;
 export default function ReportsPage() {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
+  const currentUser = getCurrentUser();
+  const isCustomer = currentUser?.role === "customer";
 
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ["reports"],
@@ -125,7 +127,7 @@ export default function ReportsPage() {
       key: "actions", header: "Actions",
       render: (r: Report) => (
         <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-          {r.status === "draft" && (
+          {!isCustomer && r.status === "draft" && (
             <Button size="sm" onClick={() => issueMutation.mutate(r.id)} loading={issueMutation.isPending}>
               <Send className="w-3.5 h-3.5" /> Issue
             </Button>
@@ -143,10 +145,12 @@ export default function ReportsPage() {
   return (
     <DashboardLayout title="Reports">
       <div className="space-y-4">
-        <div className="flex justify-end">
-          <Button onClick={() => setShowCreate(true)}><Plus className="w-4 h-4" />New Report</Button>
-        </div>
-        <Table columns={columns as never} data={reports as never} loading={isLoading} emptyMessage="No reports generated." keyExtractor={(r) => (r as unknown as Report).id} />
+        {!isCustomer && (
+          <div className="flex justify-end">
+            <Button onClick={() => setShowCreate(true)}><Plus className="w-4 h-4" />New Report</Button>
+          </div>
+        )}
+        <Table<Report> columns={columns} data={reports} loading={isLoading} emptyMessage="No reports generated." keyExtractor={(r) => r.id} />
       </div>
 
       <Modal open={showCreate} onClose={() => { setShowCreate(false); reset(); }} title="Create Report" size="lg">

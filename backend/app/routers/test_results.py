@@ -15,6 +15,23 @@ from app.services.uncertainty import calculate_uncertainty
 router = APIRouter(prefix="/test-results", tags=["Test Results"])
 
 
+def _maybe_complete_sample(sample: Sample, db: Session) -> None:
+    """Mark sample as completed if every requested test has a validated result."""
+    requested_ids: list[int] = sample.requested_test_ids or []
+    if not requested_ids:
+        return
+    validated_ids = {
+        tr.catalog_item_id
+        for tr in db.query(TestResult).filter(
+            TestResult.sample_id == sample.id,
+            TestResult.status == TestStatus.validated,
+            TestResult.catalog_item_id.isnot(None),
+        ).all()
+    }
+    if all(rid in validated_ids for rid in requested_ids):
+        sample.status = SampleStatus.completed
+
+
 @router.get("", response_model=List[TestResultOut])
 def list_test_results(
     sample_id: Optional[int] = None,
@@ -102,6 +119,12 @@ def validate_test_result(
     tr.status = TestStatus.validated
     tr.validated_by = current_user.id
     tr.validated_at = datetime.now(timezone.utc)
+
+    # Auto-complete sample if all requested tests are now validated
+    sample = db.query(Sample).filter(Sample.id == tr.sample_id).first()
+    if sample:
+        _maybe_complete_sample(sample, db)
+
     db.commit()
     db.refresh(tr)
     log_action(db, current_user.id, "VALIDATE_TEST_RESULT", "test_result", str(result_id))
@@ -181,11 +204,14 @@ def bulk_upsert_results(
             db.add(tr)
         results.append(tr)
 
-    # Update sample status
+    # Update sample status to in_testing if not already further along
     if results and sample.status in {
         SampleStatus.received, SampleStatus.registered, SampleStatus.assigned
     }:
         sample.status = SampleStatus.in_testing
+
+    # Auto-complete sample if all requested tests happen to be validated already
+    _maybe_complete_sample(sample, db)
 
     db.commit()
     for tr in results:

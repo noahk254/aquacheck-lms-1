@@ -48,6 +48,10 @@ def update_user(
     update_data = payload.model_dump(exclude_unset=True)
     if "password" in update_data:
         update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
+    if "customer_id" in update_data and update_data["customer_id"] is not None:
+        from app.models.customer import Customer
+        if not db.query(Customer).filter(Customer.id == update_data["customer_id"]).first():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found")
     for k, v in update_data.items():
         setattr(user, k, v)
     db.commit()

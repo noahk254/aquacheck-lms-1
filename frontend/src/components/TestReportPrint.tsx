@@ -71,11 +71,16 @@ export default function TestReportPrint({ sampleId, onClose }: TestReportPrintPr
     if (tr.catalog_item_id) resultByCatalog[tr.catalog_item_id] = tr;
   }
 
-  const physicochemical = catalogItems.filter((c) => c.category === "physicochemical");
-  const microbiological = catalogItems.filter((c) => c.category === "microbiological");
+  // Only show tests that were requested for this sample
+  const requestedIds = new Set(sample?.requested_test_ids ?? []);
+  const requestedItems =
+    requestedIds.size > 0 ? catalogItems.filter((c) => requestedIds.has(c.id)) : catalogItems;
+
+  const physicochemical = requestedItems.filter((c) => c.category === "physicochemical");
+  const microbiological = requestedItems.filter((c) => c.category === "microbiological");
 
   // Check overall compliance
-  const allResults = catalogItems
+  const allResults = requestedItems
     .map((item) => {
       const tr = resultByCatalog[item.id];
       if (!tr?.result_value) return null;
@@ -83,7 +88,7 @@ export default function TestReportPrint({ sampleId, onClose }: TestReportPrintPr
     })
     .filter(Boolean);
   const hasNonCompliant = allResults.includes("NON-COMPLIANT");
-  const nonCompliantItems = catalogItems.filter((item) => {
+  const nonCompliantItems = requestedItems.filter((item) => {
     const tr = resultByCatalog[item.id];
     return tr?.result_value && getCompliance(item, tr.result_value) === "NON-COMPLIANT";
   });

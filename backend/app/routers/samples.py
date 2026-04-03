@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from app.deps import get_db, get_current_user
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.contract import Contract
 from app.models.sample import Sample
 from app.schemas.sample import SampleCreate, SampleUpdate, SampleOut, CustodyEntry
@@ -20,8 +21,19 @@ def _next_sample_code(db: Session) -> str:
 
 
 @router.get("", response_model=List[SampleOut])
-def list_samples(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return db.query(Sample).order_by(Sample.created_at.desc()).all()
+def list_samples(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role == UserRole.customer and current_user.customer_id:
+        cid = current_user.customer_id
+        contract_alias = db.query(Contract.id).filter(Contract.customer_id == cid).subquery()
+        q = db.query(Sample).filter(
+            or_(
+                Sample.customer_id == cid,
+                Sample.contract_id.in_(contract_alias),
+            )
+        )
+    else:
+        q = db.query(Sample)
+    return q.order_by(Sample.created_at.desc()).all()
 
 
 @router.post("", response_model=SampleOut, status_code=status.HTTP_201_CREATED)

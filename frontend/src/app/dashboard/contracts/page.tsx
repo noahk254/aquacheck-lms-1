@@ -122,12 +122,12 @@ export default function ContractsPage() {
           </Button>
         </div>
 
-        <Table
-          columns={columns as never}
-          data={filtered as never}
+        <Table<Contract>
+          columns={columns}
+          data={filtered}
           loading={isLoading}
           emptyMessage="No contracts found."
-          keyExtractor={(r) => (r as unknown as Contract).id}
+          keyExtractor={(r) => r.id}
         />
       </div>
 

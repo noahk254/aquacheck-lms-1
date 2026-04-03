@@ -17,7 +17,7 @@ interface TableProps<T> {
   keyExtractor?: (row: T) => string | number;
 }
 
-export function Table<T extends Record<string, unknown>>({
+export function Table<T extends object>({
   columns,
   data,
   loading,
@@ -77,7 +77,7 @@ export function Table<T extends Record<string, unknown>>({
                     key={col.key}
                     className={cn("px-4 py-3 text-gray-700 whitespace-nowrap", col.className)}
                   >
-                    {col.render ? col.render(row) : String(row[col.key] ?? "")}
+                    {col.render ? col.render(row) : String((row as Record<string, unknown>)[col.key] ?? "")}
                   </td>
                 ))}
               </tr>

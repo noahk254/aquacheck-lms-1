@@ -111,9 +111,14 @@ export default function SampleDetailPage() {
     }
   };
 
+  // Only show tests that were requested for this sample
+  const requestedIds = new Set(sample?.requested_test_ids ?? []);
+  const requestedItems =
+    requestedIds.size > 0 ? catalogItems.filter((c) => requestedIds.has(c.id)) : catalogItems;
+
   // Separate catalog items by category
-  const physicochemical = catalogItems.filter((c) => c.category === "physicochemical");
-  const microbiological = catalogItems.filter((c) => c.category === "microbiological");
+  const physicochemical = requestedItems.filter((c) => c.category === "physicochemical");
+  const microbiological = requestedItems.filter((c) => c.category === "microbiological");
 
   // Compliance helper
   const getCompliance = (item: TestCatalogItem, value: string): string | null => {
@@ -164,7 +169,7 @@ export default function SampleDetailPage() {
     );
   }
 
-  const filledCount = Object.values(drafts).filter((d) => d.result_value.trim()).length;
+  const filledCount = requestedItems.filter((item) => drafts[item.id]?.result_value.trim()).length;
 
   return (
     <DashboardLayout title={`Sample ${sample.sample_code}`}>
@@ -296,7 +301,7 @@ export default function SampleDetailPage() {
         <Card>
           <CardHeader
             title="Test Results"
-            subtitle={`${filledCount} of ${catalogItems.length} tests completed`}
+            subtitle={`${filledCount} of ${requestedItems.length} tests completed`}
             action={
               <div className="flex items-center gap-2">
                 {dirty && (

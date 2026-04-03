@@ -11,7 +11,7 @@ from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from app.deps import get_db, get_current_user
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.report import Report, ReportStatus
 from app.models.contract import Contract
 from app.models.customer import Customer
@@ -76,8 +76,14 @@ def _result_sections(test_results, content: dict):
 
 
 @router.get("", response_model=List[ReportOut])
-def list_reports(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return db.query(Report).order_by(Report.created_at.desc()).all()
+def list_reports(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    q = db.query(Report)
+    if current_user.role == UserRole.customer and current_user.customer_id:
+        q = (
+            q.join(Contract, Report.contract_id == Contract.id)
+             .filter(Contract.customer_id == current_user.customer_id)
+        )
+    return q.order_by(Report.created_at.desc()).all()
 
 
 @router.post("", response_model=ReportOut, status_code=status.HTTP_201_CREATED)
@@ -86,6 +92,11 @@ def create_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if current_user.role == UserRole.customer:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Customers are not permitted to create reports.",
+        )
     contract = db.query(Contract).filter(Contract.id == payload.contract_id).first()
     if not contract:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
@@ -108,10 +119,15 @@ def create_report(
 
 
 @router.get("/{report_id}", response_model=ReportOut)
-def get_report(report_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def get_report(report_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
+    # Customers may only view reports belonging to their own customer account
+    if current_user.role == UserRole.customer and current_user.customer_id:
+        contract = db.query(Contract).filter(Contract.id == report.contract_id).first()
+        if not contract or contract.customer_id != current_user.customer_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
     return report
 
 
@@ -121,6 +137,11 @@ def issue_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if current_user.role == UserRole.customer:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Customers are not permitted to issue reports.",
+        )
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")

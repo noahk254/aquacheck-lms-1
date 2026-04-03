@@ -10,6 +10,7 @@ from app.models.complaint import Complaint, ComplaintStatus
 from app.models.nonconformity import Nonconformity, NonconformityStatus, RiskLevel
 from app.models.audit_log import AuditLog
 from app.models.test_catalog import TestCatalogItem, TestCategory
+from app.models.document import Document, DocumentCategory, DocumentStatus
 
 __all__ = [
     "User", "UserRole",
@@ -24,4 +25,5 @@ __all__ = [
     "Nonconformity", "NonconformityStatus", "RiskLevel",
     "AuditLog",
     "TestCatalogItem", "TestCategory",
+    "Document", "DocumentCategory", "DocumentStatus",
 ]

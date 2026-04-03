@@ -19,6 +19,7 @@ from app.routers import (
     nonconformities,
     quality,
     test_catalog,
+    documents,
 )
 
 app = FastAPI(
@@ -31,8 +32,12 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000", "http://127.0.0.1:3000", "http://frontend:3000",
+        "http://localhost:3001", "http://127.0.0.1:3001",
+        "http://localhost:3002", "http://127.0.0.1:3002",
         "http://localhost:3030", "http://127.0.0.1:3030",
         "http://35.154.192.45:3030",
+        "http://192.168.100.46:3000", "http://192.168.100.46:3001",
+        "http://192.168.100.46:3002", "http://192.168.100.46:3030",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -44,7 +49,7 @@ API_PREFIX = "/api/v1"
 for router_module in [
     auth, users, customers, contracts, samples,
     test_results, equipment, reports, complaints, nonconformities, quality,
-    test_catalog,
+    test_catalog, documents,
 ]:
     app.include_router(router_module.router, prefix=API_PREFIX)
 
@@ -144,6 +149,66 @@ def ensure_schema_compatibility():
             ))
             print("[LIMS] Added customers.currency column.")
 
+        # documents.content — add JSON column if not present
+        content_exists = connection.execute(
+            text(
+                """
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'documents' AND column_name = 'content'
+                """
+            )
+        ).scalar()
+        if not content_exists:
+            connection.execute(text(
+                "ALTER TABLE documents ADD COLUMN content JSON NOT NULL DEFAULT '[]'::json"
+            ))
+            print("[LIMS] Added documents.content column.")
+
+        # users.customer_id — link customer-role users to a customer
+        user_cust_exists = connection.execute(
+            text(
+                """
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'users' AND column_name = 'customer_id'
+                """
+            )
+        ).scalar()
+        if not user_cust_exists:
+            connection.execute(text(
+                "ALTER TABLE users ADD COLUMN customer_id INTEGER REFERENCES customers(id)"
+            ))
+            print("[LIMS] Added users.customer_id column.")
+
+        # users.is_contact_person — flag whether this user is the contact person for the customer
+        user_contact_exists = connection.execute(
+            text(
+                """
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'users' AND column_name = 'is_contact_person'
+                """
+            )
+        ).scalar()
+        if not user_contact_exists:
+            connection.execute(text(
+                "ALTER TABLE users ADD COLUMN is_contact_person BOOLEAN NOT NULL DEFAULT FALSE"
+            ))
+            print("[LIMS] Added users.is_contact_person column.")
+
+        # samples.customer_id — associate sample directly with a customer
+        sample_cust_exists = connection.execute(
+            text(
+                """
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'samples' AND column_name = 'customer_id'
+                """
+            )
+        ).scalar()
+        if not sample_cust_exists:
+            connection.execute(text(
+                "ALTER TABLE samples ADD COLUMN customer_id INTEGER REFERENCES customers(id)"
+            ))
+            print("[LIMS] Added samples.customer_id column.")
+
 
 @app.on_event("startup")
 def on_startup():
@@ -171,6 +236,13 @@ def on_startup():
             print(f"[LIMS] Seeded {cust_added} customers from customer list.")
         else:
             print("[LIMS] Customers already up to date.")
+
+        from app.routers.documents import seed_documents
+        docs_added = seed_documents(db)
+        if docs_added:
+            print(f"[LIMS] Seeded {docs_added} SOPs/Master List documents.")
+        else:
+            print("[LIMS] Documents already up to date.")
     finally:
         db.close()
 

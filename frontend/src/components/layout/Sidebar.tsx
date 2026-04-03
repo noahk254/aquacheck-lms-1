@@ -15,10 +15,7 @@ import {
   Settings,
   LogOut,
   BookMarked,
-<<<<<<< HEAD
   Library,
-=======
->>>>>>> origin/main
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrentUser, logout } from "@/lib/auth";
@@ -35,15 +32,18 @@ const navItems = [
   { label: "Quality", href: "/dashboard/quality", icon: ShieldCheck },
 ];
 
+const customerNavItems = [
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Reports", href: "/dashboard/reports", icon: ClipboardList },
+  { label: "Complaints", href: "/dashboard/complaints", icon: MessageSquareWarning },
+];
+
 const adminItems = [{ label: "Admin", href: "/dashboard/admin", icon: Settings }];
 
-<<<<<<< HEAD
 const catalogItems = [
   { label: "Test Catalog", href: "/dashboard/catalog/tests", icon: Library },
 ];
 
-=======
->>>>>>> origin/main
 const settingsItems = [{ label: "Docs", href: "/dashboard/settings/docs", icon: BookMarked }];
 
 export function Sidebar() {
@@ -70,7 +70,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
-        {navItems.map(({ label, href, icon: Icon }) => (
+        {(user?.role === "customer" ? customerNavItems : navItems).map(({ label, href, icon: Icon }) => (
           <Link
             key={href}
             href={href}
@@ -106,8 +106,8 @@ export function Sidebar() {
           </div>
         )}
 
-<<<<<<< HEAD
         {/* Catalog */}
+        {user?.role !== "customer" && (
         <div className="pt-3 mt-3 border-t border-dark-700">
           <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
             Catalog
@@ -128,10 +128,10 @@ export function Sidebar() {
             </Link>
           ))}
         </div>
+        )}
 
-=======
->>>>>>> origin/main
         {/* Settings */}
+        {user?.role !== "customer" && (
         <div className="pt-3 mt-3 border-t border-dark-700">
           <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
             Settings
@@ -152,6 +152,7 @@ export function Sidebar() {
             </Link>
           ))}
         </div>
+        )}
       </nav>
 
       {/* User section */}
