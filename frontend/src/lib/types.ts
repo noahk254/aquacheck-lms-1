@@ -360,3 +360,91 @@ export interface Document {
   created_at: string;
   updated_at: string;
 }
+
+// ─── Inventory ────────────────────────────────────────────────────────────────
+
+export type InventoryCategory =
+  | "reagent"
+  | "standard"
+  | "consumable"
+  | "glassware"
+  | "media"
+  | "ppe"
+  | "other";
+
+export type TransactionType =
+  | "receive"
+  | "use"
+  | "adjust"
+  | "dispose"
+  | "return_stock";
+
+export interface InventoryItem {
+  id: number;
+  item_code: string;
+  name: string;
+  category: InventoryCategory;
+  description?: string;
+  unit: string;
+  minimum_stock: number;
+  current_stock: number;
+  supplier?: string;
+  catalog_number?: string;
+  storage_location?: string;
+  storage_conditions?: string;
+  unit_cost?: number;
+  is_active: number;
+  is_low_stock: boolean;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InventoryTransaction {
+  id: number;
+  item_id: number;
+  transaction_type: TransactionType;
+  quantity: number;
+  balance_after: number;
+  transaction_date: string;
+  lot_number?: string;
+  expiry_date?: string;
+  supplier?: string;
+  reference?: string;
+  related_sample_id?: number;
+  related_test_result_id?: number;
+  performed_by?: number;
+  notes?: string;
+  created_at: string;
+  item_name?: string;
+  item_code?: string;
+  item_unit?: string;
+}
+
+export interface InventoryStats {
+  total_items: number;
+  low_stock_count: number;
+  expiring_soon_count: number;
+  total_value: number;
+}
+
+export interface TestReagentUsage {
+  id: number;
+  catalog_item_id: number;
+  inventory_item_id: number;
+  quantity_per_test: number;
+  notes?: string;
+  created_at: string;
+  catalog_item_name?: string;
+  inventory_item_name?: string;
+  inventory_item_code?: string;
+  inventory_unit?: string;
+  current_stock?: number;
+}
+
+export interface CsvImportResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: string[];
+}

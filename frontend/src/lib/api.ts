@@ -5,6 +5,8 @@ import type {
   Equipment, Report, Complaint, Nonconformity, AuditLog,
   PaginatedResponse, LoginResponse, QualityDashboard, TestCatalogItem, TestCategory,
   Method, Document, DocumentCategory,
+  InventoryItem, InventoryTransaction, InventoryStats, InventoryCategory,
+  TestReagentUsage, CsvImportResult,
 } from "./types";
 
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL) + "/api/v1";
@@ -170,6 +172,61 @@ export const documentsApi = {
         a.click();
         window.URL.revokeObjectURL(url);
       }),
+};
+
+// ─── Inventory ────────────────────────────────────────────────────────────────
+export const inventoryApi = {
+  list: (params?: { category?: InventoryCategory; search?: string; active_only?: boolean }) =>
+    api.get<InventoryItem[]>("/inventory", { params }),
+  get: (id: number) => api.get<InventoryItem>(`/inventory/${id}`),
+  create: (data: Partial<InventoryItem> & { opening_stock?: number }) =>
+    api.post<InventoryItem>("/inventory", data),
+  update: (id: number, data: Partial<InventoryItem>) =>
+    api.put<InventoryItem>(`/inventory/${id}`, data),
+  delete: (id: number) => api.delete(`/inventory/${id}`),
+  stats: () => api.get<InventoryStats>("/inventory/stats"),
+  lowStock: () => api.get<InventoryItem[]>("/inventory/low-stock"),
+  transactions: (itemId: number) =>
+    api.get<InventoryTransaction[]>(`/inventory/${itemId}/transactions`),
+  recentTransactions: (limit = 50) =>
+    api.get<InventoryTransaction[]>("/inventory/transactions/recent", { params: { limit } }),
+  addTransaction: (data: Partial<InventoryTransaction>) =>
+    api.post<InventoryTransaction>("/inventory/transactions", data),
+
+  // Test-reagent usage mapping
+  listUsage: (params?: { catalog_item_id?: number; inventory_item_id?: number }) =>
+    api.get<TestReagentUsage[]>("/inventory/test-usage", { params }),
+  createUsage: (data: {
+    catalog_item_id: number;
+    inventory_item_id: number;
+    quantity_per_test: number;
+    notes?: string;
+  }) => api.post<TestReagentUsage>("/inventory/test-usage", data),
+  deleteUsage: (id: number) => api.delete(`/inventory/test-usage/${id}`),
+
+  // CSV export
+  exportItemsUrl: () => `${BASE_URL}/inventory/export/items.csv`,
+  exportTransactionsUrl: () => `${BASE_URL}/inventory/export/transactions.csv`,
+  exportTemplateUrl: () => `${BASE_URL}/inventory/export/template.csv`,
+
+  downloadCsv: async (endpoint: string, filename: string) => {
+    const res = await api.get(endpoint, { responseType: "blob" });
+    const url = window.URL.createObjectURL(new Blob([res.data], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  },
+
+  // CSV import
+  importItems: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.post<CsvImportResult>("/inventory/import/items", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 };
 
 // ─── Test Catalog ─────────────────────────────────────────────────────────────
