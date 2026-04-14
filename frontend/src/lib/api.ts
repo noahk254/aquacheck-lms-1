@@ -9,7 +9,11 @@ import type {
   TestReagentUsage, CsvImportResult,
 } from "./types";
 
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL) + "/api/v1";
+const baseApiUrl = process.env.NEXT_PUBLIC_API_URL ??
+  (typeof window !== "undefined"
+    ? `${window.location.protocol}//${window.location.hostname}:8088`
+    : "http://localhost:8088");
+const BASE_URL = `${baseApiUrl}/api/v1`;
 
 const api: AxiosInstance = axios.create({ baseURL: BASE_URL });
 

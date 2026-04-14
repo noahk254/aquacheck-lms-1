@@ -44,7 +44,10 @@ export function logout(): void {
 }
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ??
+    (typeof window !== "undefined"
+      ? `${window.location.protocol}//${window.location.hostname}:8088`
+      : "http://localhost:8088");
   const res = await fetch(`${apiUrl}/api/v1/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
