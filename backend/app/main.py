@@ -23,6 +23,7 @@ from app.routers import (
     inventory,
     quotations,
 )
+from app.routers import calibration_records
 
 app = FastAPI(
     title="AquaCheck LIMS API",
@@ -50,7 +51,7 @@ API_PREFIX = "/api/v1"
 
 for router_module in [
     auth, users, customers, contracts, samples,
-    test_results, equipment, reports, complaints, nonconformities, quality,
+    test_results, equipment, calibration_records, reports, complaints, nonconformities, quality,
     test_catalog, documents, inventory, quotations,
 ]:
     app.include_router(router_module.router, prefix=API_PREFIX)
@@ -278,6 +279,9 @@ def on_startup():
         Base.metadata.create_all(bind=engine)
         ensure_schema_compatibility()
         print("[LIMS] Database tables ensured.")
+        from app.routers.calibration_records import CERT_DIR
+        CERT_DIR.mkdir(parents=True, exist_ok=True)
+        print(f"[LIMS] Calibration cert upload directory: {CERT_DIR}")
     except OperationalError as e:
         print(f"[LIMS] WARNING: Could not create tables: {e}")
         return

@@ -2,7 +2,7 @@ import axios, { AxiosInstance } from "axios";
 import { getToken, logout } from "./auth";
 import type {
   User, UserRole, Customer, Contract, Sample, TestResult,
-  Equipment, Report, Complaint, Nonconformity, AuditLog,
+  Equipment, CalibrationRecord, Report, Complaint, Nonconformity, AuditLog,
   PaginatedResponse, LoginResponse, QualityDashboard, TestCatalogItem, TestCategory,
   Method, Document, DocumentCategory, Quotation, QuotationItem,
   InventoryItem, InventoryTransaction, InventoryStats, InventoryCategory,
@@ -282,4 +282,17 @@ export const testCatalogApi = {
     api.put<TestCatalogItem>(`/test-catalog/${id}`, data),
   delete: (id: number) => api.delete(`/test-catalog/${id}`),
   seed: () => api.post<{ added: number; message: string }>("/test-catalog/seed"),
+};
+
+// ─── Calibration Records ──────────────────────────────────────────────────────
+export const calibrationApi = {
+  list: (equipmentId: number) =>
+    api.get<CalibrationRecord[]>("/calibration-records", { params: { equipment_id: equipmentId } }),
+  create: (form: FormData) =>
+    api.post<CalibrationRecord>("/calibration-records", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  downloadCertUrl: (recordId: number) =>
+    `${api.defaults.baseURL}/calibration-records/${recordId}/certificate`,
+  delete: (recordId: number) => api.delete(`/calibration-records/${recordId}`),
 };

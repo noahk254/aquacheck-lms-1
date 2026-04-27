@@ -64,6 +64,8 @@ export type EquipmentStatus =
   | "out_of_service"
   | "decommissioned";
 
+export type CalibrationResult = "pass" | "fail" | "conditional";
+
 export type ReportType =
   | "test_report"
   | "calibration_certificate"
@@ -263,6 +265,21 @@ export interface Equipment {
   last_calibration_date?: string;
   calibration_certificate_ref?: string;
   location?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CalibrationRecord {
+  id: number;
+  equipment_id: number;
+  calibration_date: string;
+  next_due_date: string;
+  performed_by?: string;
+  certificate_ref?: string;
+  result?: CalibrationResult;
+  notes?: string;
+  has_certificate: boolean;
+  created_by?: number;
   created_at: string;
   updated_at: string;
 }

@@ -16,6 +16,7 @@ from app.models.inventory import (
     TestReagentUsage,
 )
 from app.models.quotation import Quotation, QuotationStatus
+from app.models.calibration_record import CalibrationRecord, CalibrationResult
 
 __all__ = [
     "User", "UserRole",
@@ -34,4 +35,5 @@ __all__ = [
     "InventoryItem", "InventoryTransaction", "InventoryCategory", "TransactionType",
     "TestReagentUsage",
     "Quotation", "QuotationStatus",
+    "CalibrationRecord", "CalibrationResult",
 ]

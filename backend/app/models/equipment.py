@@ -1,6 +1,7 @@
 import enum
 from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Enum as SAEnum, Date
+from sqlalchemy.orm import relationship
 from app.database import Base
 
 
@@ -26,6 +27,7 @@ class Equipment(Base):
     calibration_certificate_ref = Column(String, nullable=True)
     location = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    calibration_records = relationship("CalibrationRecord", back_populates="equipment", order_by="CalibrationRecord.calibration_date.desc()")
     updated_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
