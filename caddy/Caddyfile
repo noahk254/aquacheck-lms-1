@@ -1,0 +1,35 @@
+{
+    email admin@aquachecklab.com
+}
+
+lims.aquachecklab.com {
+    coraza_waf {
+        load_owasp_crs
+        directives `
+            Include @coraza.conf-recommended
+            Include @crs-setup.conf.example
+            Include @owasp_crs/*.conf
+            SecRuleEngine On
+            SecRequestBodyAccess On
+            SecResponseBodyAccess On
+            SecResponseBodyMimeType text/plain text/html text/xml application/json
+            SecRequestBodyLimit 13107200
+            SecRequestBodyNoFilesLimit 131072
+        `
+    }
+
+    # API traffic → FastAPI backend (strip the /api prefix)
+    handle_path /api/* {
+        reverse_proxy backend:8000
+    }
+
+    # Everything else → Next.js frontend
+    handle {
+        reverse_proxy frontend:3000
+    }
+
+    log {
+        output stdout
+        format json
+    }
+}

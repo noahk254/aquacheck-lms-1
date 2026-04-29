@@ -160,6 +160,15 @@ alembic upgrade head
 
 ---
 
+## DB Backups
+### Create Backup
+./scripts/backup.sh
+Saves: backups/manual_lims_db_20260429_143000.sql.gz
+
+### Restore backup
+./scripts/restore.sh backups/manual_lims_db_20260429_143000.sql.gz
+
+
 ## Production Checklist
 
 - [ ] Change `SECRET_KEY` to a strong random value
