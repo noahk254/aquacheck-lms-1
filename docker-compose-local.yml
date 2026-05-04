@@ -22,7 +22,12 @@ services:
     networks:
       - lims_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lims_user} -d ${POSTGRES_DB:-lims_db}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-lims_user} -d
+            ${POSTGRES_DB:-lims_db}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -44,7 +49,7 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
     volumes:
       - ./backend:/app
-      - ./docs:/app/docs_source:ro              # read-only source for initial content import
+      - ./docs:/app/docs_source:ro # read-only source for initial content import
     depends_on:
       db:
         condition: service_healthy
@@ -56,7 +61,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://lims.aquachecklab.com/api}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://lim.aquachecklab.com/api}
     container_name: aquacheck_frontend
     restart: unless-stopped
     env_file:
@@ -64,7 +69,7 @@ services:
     ports:
       - "3002:3000"
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://lims.aquachecklab.com/api}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://lim.aquachecklab.com/api}
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
