@@ -18,14 +18,22 @@ def calibration_due(db: Session = Depends(get_db), _: User = Depends(get_current
         db.query(Equipment)
         .filter(Equipment.calibration_due_date <= threshold)
         .filter(Equipment.calibration_due_date != None)  # noqa: E711
+        .filter(Equipment.is_active == 1)
         .order_by(Equipment.calibration_due_date.asc())
         .all()
     )
 
 
 @router.get("", response_model=List[EquipmentOut])
-def list_equipment(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return db.query(Equipment).order_by(Equipment.created_at.desc()).all()
+def list_equipment(
+    active_only: bool = True,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    q = db.query(Equipment)
+    if active_only:
+        q = q.filter(Equipment.is_active == 1)
+    return q.order_by(Equipment.created_at.desc()).all()
 
 
 @router.post("", response_model=EquipmentOut, status_code=status.HTTP_201_CREATED)
@@ -68,4 +76,21 @@ def update_equipment(
     db.commit()
     db.refresh(equip)
     log_action(db, current_user.id, "UPDATE_EQUIPMENT", "equipment", str(equipment_id))
+    return equip
+
+
+@router.patch("/{equipment_id}/toggle-active", response_model=EquipmentOut)
+def toggle_active(
+    equipment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    equip = db.query(Equipment).filter(Equipment.id == equipment_id).first()
+    if not equip:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipment not found")
+    equip.is_active = 0 if equip.is_active else 1
+    db.commit()
+    db.refresh(equip)
+    action = "DEACTIVATE_EQUIPMENT" if equip.is_active == 0 else "ACTIVATE_EQUIPMENT"
+    log_action(db, current_user.id, action, "equipment", str(equipment_id))
     return equip

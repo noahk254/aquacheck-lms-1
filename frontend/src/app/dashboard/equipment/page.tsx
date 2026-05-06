@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, AlertCircle, Clock, Download, Trash2, CircleCheck, CircleX, TriangleAlert } from "lucide-react";
+import { Plus, AlertCircle, Clock, Download, Trash2, CircleCheck, CircleX, TriangleAlert, Power } from "lucide-react";
 import { format } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/Button";
@@ -259,9 +259,10 @@ export default function EquipmentPage() {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [historyEquipment, setHistoryEquipment] = useState<Equipment | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
 
   const { data: equipment = [], isLoading } = useQuery({
-    queryKey: ["equipment"],
+    queryKey: ["equipment", showInactive],
     queryFn: () => equipmentApi.list().then((r) => r.data),
   });
   const { data: calDue = [] } = useQuery({
@@ -269,9 +270,17 @@ export default function EquipmentPage() {
     queryFn: () => equipmentApi.calibrationDue().then((r) => r.data),
   });
 
+  const filteredEquipment = showInactive ? equipment : equipment.filter((e) => e.is_active);
+  const filteredCalDue = calDue.filter((e) => e.is_active);
+
   const createMutation = useMutation({
     mutationFn: (data: Partial<Equipment>) => equipmentApi.create(data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["equipment"] }); setShowCreate(false); reset(); },
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (id: number) => equipmentApi.toggleActive(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["equipment"] }); },
   });
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm<AddFormData>({ resolver: zodResolver(addSchema) });
@@ -281,7 +290,16 @@ export default function EquipmentPage() {
     { key: "name", header: "Name" },
     { key: "model", header: "Model", render: (r: Equipment) => <span className="text-gray-600 text-xs">{r.model ?? "—"}</span> },
     { key: "serial_number", header: "Serial #", render: (r: Equipment) => <span className="font-mono text-xs">{r.serial_number ?? "—"}</span> },
-    { key: "status", header: "Status", render: (r: Equipment) => <EquipmentStatusBadge status={r.status} /> },
+    {
+      key: "status", header: "Status", render: (r: Equipment) => (
+        <div className="flex items-center gap-1.5">
+          <EquipmentStatusBadge status={r.status} />
+          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${r.is_active ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+            {r.is_active ? "Active" : "Inactive"}
+          </span>
+        </div>
+      )
+    },
     { key: "last_calibration_date", header: "Last Cal.", render: (r: Equipment) => <span className="text-xs text-gray-500">{r.last_calibration_date ? format(new Date(r.last_calibration_date), "MMM d, yyyy") : "—"}</span> },
     {
       key: "calibration_due_date", header: "Due Date", render: (r: Equipment) => {
@@ -293,14 +311,23 @@ export default function EquipmentPage() {
     },
     {
       key: "actions", header: "", render: (r: Equipment) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); setHistoryEquipment(r); }}
-          className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-800 font-medium px-2 py-1 rounded hover:bg-primary-50 transition-colors"
-          title="View calibration history"
-        >
-          <Clock className="w-3.5 h-3.5" />
-          History
-        </button>
+        <div className="flex items-center gap-1 justify-end">
+          <button
+            onClick={(e) => { e.stopPropagation(); toggleMutation.mutate(r.id); }}
+            className={`p-1.5 rounded transition-colors ${r.is_active ? "hover:bg-amber-50 text-amber-600" : "hover:bg-green-50 text-green-600"}`}
+            title={r.is_active ? "Deactivate" : "Activate"}
+          >
+            <Power className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setHistoryEquipment(r); }}
+            className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-800 font-medium px-2 py-1 rounded hover:bg-primary-50 transition-colors"
+            title="View calibration history"
+          >
+            <Clock className="w-3.5 h-3.5" />
+            History
+          </button>
+        </div>
       )
     },
   ];
@@ -308,24 +335,33 @@ export default function EquipmentPage() {
   return (
     <DashboardLayout title="Equipment">
       <div className="space-y-4">
-        {calDue.length > 0 && (
+        {filteredCalDue.length > 0 && (
           <div className="flex items-start gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
             <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
             <div>
               <p className="font-medium text-yellow-800 text-sm">Calibration Due Soon</p>
               <p className="text-yellow-700 text-xs mt-0.5">
-                {calDue.length} equipment item{calDue.length !== 1 ? "s" : ""} have calibration due within 30 days:{" "}
-                {calDue.map((e) => e.equipment_id).join(", ")}
+                {filteredCalDue.length} equipment item{filteredCalDue.length !== 1 ? "s" : ""} have calibration due within 30 days:{" "}
+                {filteredCalDue.map((e) => e.equipment_id).join(", ")}
               </p>
             </div>
           </div>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex justify-between">
+          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            Show inactive
+          </label>
           <Button onClick={() => setShowCreate(true)}><Plus className="w-4 h-4" />Add Equipment</Button>
         </div>
 
-        <Table<Equipment> columns={columns} data={equipment} loading={isLoading} emptyMessage="No equipment registered." keyExtractor={(r) => r.id} />
+        <Table<Equipment> columns={columns} data={filteredEquipment} loading={isLoading} emptyMessage="No equipment registered." keyExtractor={(r) => r.id} />
       </div>
 
       {/* Add Equipment modal */}

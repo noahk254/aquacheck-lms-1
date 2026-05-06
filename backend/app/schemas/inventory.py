@@ -18,6 +18,7 @@ class InventoryItemBase(BaseModel):
     storage_location: Optional[str] = None
     storage_conditions: Optional[str] = None
     unit_cost: Optional[float] = None
+    expiry_date: Optional[date] = None
     notes: Optional[str] = None
 
 
@@ -37,6 +38,7 @@ class InventoryItemUpdate(BaseModel):
     storage_conditions: Optional[str] = None
     unit_cost: Optional[float] = None
     is_active: Optional[int] = None
+    expiry_date: Optional[date] = None
     notes: Optional[str] = None
 
 

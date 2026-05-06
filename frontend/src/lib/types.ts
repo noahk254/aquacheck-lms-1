@@ -261,6 +261,7 @@ export interface Equipment {
   manufacturer?: string;
   serial_number?: string;
   status: EquipmentStatus;
+  is_active: number;
   calibration_due_date?: string;
   last_calibration_date?: string;
   calibration_certificate_ref?: string;
@@ -458,6 +459,7 @@ export interface InventoryItem {
   storage_location?: string;
   storage_conditions?: string;
   unit_cost?: number;
+  expiry_date?: string;
   is_active: number;
   is_low_stock: boolean;
   notes?: string;

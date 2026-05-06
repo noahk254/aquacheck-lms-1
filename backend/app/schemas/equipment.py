@@ -26,6 +26,7 @@ class EquipmentUpdate(BaseModel):
     manufacturer: Optional[str] = None
     serial_number: Optional[str] = None
     status: Optional[EquipmentStatus] = None
+    is_active: Optional[int] = None
     location: Optional[str] = None
     calibration_due_date: Optional[date] = None
     last_calibration_date: Optional[date] = None
@@ -35,6 +36,7 @@ class EquipmentUpdate(BaseModel):
 class EquipmentOut(EquipmentBase):
     id: int
     status: EquipmentStatus
+    is_active: int
     created_at: datetime
     updated_at: datetime
 
