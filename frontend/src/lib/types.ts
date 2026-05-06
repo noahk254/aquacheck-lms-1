@@ -265,6 +265,7 @@ export interface Equipment {
   last_calibration_date?: string;
   calibration_certificate_ref?: string;
   location?: string;
+  is_active: number;
   created_at: string;
   updated_at: string;
 }

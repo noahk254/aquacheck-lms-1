@@ -26,6 +26,7 @@ class Equipment(Base):
     last_calibration_date = Column(Date, nullable=True)
     calibration_certificate_ref = Column(String, nullable=True)
     location = Column(String, nullable=True)
+    is_active = Column(Integer, nullable=False, default=1)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     calibration_records = relationship("CalibrationRecord", back_populates="equipment", order_by="CalibrationRecord.calibration_date.desc()")
     updated_at = Column(
