@@ -35,6 +35,7 @@ class EquipmentUpdate(BaseModel):
 class EquipmentOut(EquipmentBase):
     id: int
     status: EquipmentStatus
+    is_active: int
     created_at: datetime
     updated_at: datetime
 

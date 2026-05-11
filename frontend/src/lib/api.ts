@@ -114,6 +114,7 @@ export const equipmentApi = {
   create: (data: Partial<Equipment>) => api.post<Equipment>("/equipment", data),
   update: (id: number, data: Partial<Equipment>) => api.put<Equipment>(`/equipment/${id}`, data),
   calibrationDue: () => api.get<Equipment[]>("/equipment/calibration-due"),
+  toggleActive: (id: number) => api.post<Equipment>(`/equipment/${id}/toggle-active`),
 };
 
 // ─── Reports ──────────────────────────────────────────────────────────────────

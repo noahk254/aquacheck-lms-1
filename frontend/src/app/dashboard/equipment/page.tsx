@@ -274,6 +274,11 @@ export default function EquipmentPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["equipment"] }); setShowCreate(false); reset(); },
   });
 
+  const toggleMutation = useMutation({
+    mutationFn: (id: number) => equipmentApi.toggleActive(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["equipment"] }); },
+  });
+
   const { register, handleSubmit, formState: { errors }, reset } = useForm<AddFormData>({ resolver: zodResolver(addSchema) });
 
   const columns = [
@@ -282,6 +287,15 @@ export default function EquipmentPage() {
     { key: "model", header: "Model", render: (r: Equipment) => <span className="text-gray-600 text-xs">{r.model ?? "—"}</span> },
     { key: "serial_number", header: "Serial #", render: (r: Equipment) => <span className="font-mono text-xs">{r.serial_number ?? "—"}</span> },
     { key: "status", header: "Status", render: (r: Equipment) => <EquipmentStatusBadge status={r.status} /> },
+    {
+      key: "is_active",
+      header: "Active",
+      render: (r: Equipment) => (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${r.is_active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+          {r.is_active ? "Active" : "Inactive"}
+        </span>
+      ),
+    },
     { key: "last_calibration_date", header: "Last Cal.", render: (r: Equipment) => <span className="text-xs text-gray-500">{r.last_calibration_date ? format(new Date(r.last_calibration_date), "MMM d, yyyy") : "—"}</span> },
     {
       key: "calibration_due_date", header: "Due Date", render: (r: Equipment) => {
@@ -293,14 +307,24 @@ export default function EquipmentPage() {
     },
     {
       key: "actions", header: "", render: (r: Equipment) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); setHistoryEquipment(r); }}
-          className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-800 font-medium px-2 py-1 rounded hover:bg-primary-50 transition-colors"
-          title="View calibration history"
-        >
-          <Clock className="w-3.5 h-3.5" />
-          History
-        </button>
+        <div className="flex items-center gap-1 justify-end">
+          <button
+            onClick={(e) => { e.stopPropagation(); toggleMutation.mutate(r.id); }}
+            className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded transition-colors ${r.is_active ? "text-red-600 hover:bg-red-50" : "text-green-600 hover:bg-green-50"}`}
+            title={r.is_active ? "Deactivate" : "Activate"}
+          >
+            {r.is_active ? <CircleX className="w-3.5 h-3.5" /> : <CircleCheck className="w-3.5 h-3.5" />}
+            {r.is_active ? "Deactivate" : "Activate"}
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setHistoryEquipment(r); }}
+            className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-800 font-medium px-2 py-1 rounded hover:bg-primary-50 transition-colors"
+            title="View calibration history"
+          >
+            <Clock className="w-3.5 h-3.5" />
+            History
+          </button>
+        </div>
       )
     },
   ];
