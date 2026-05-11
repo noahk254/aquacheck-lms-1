@@ -159,6 +159,29 @@ export default function TestReportPrint({ sampleId, onClose }: TestReportPrintPr
   const analysisDate = receivedDate;
   const reportIssuedDate = format(new Date(), "dd/MM/yyyy");
 
+  const isWaste = sample.sample_category === "waste";
+
+  const SCHEDULE_SPEC_HEADERS: Record<number, string> = {
+    3: "NEMA STANDARD FOR EFFLUENT WATER;\nTHIRD SCHEDULE.\nMaximum levels Permissible.",
+    4: "NEMA MONITORING GUIDE;\nFOURTH SCHEDULE.",
+    5: "NEMA STANDARD FOR EFFLUENT WATER;\nFIFTH SCHEDULE.\nMaximum levels Permissible.",
+    6: "NEMA MONITORING STANDARD;\nSIXTH SCHEDULE.",
+  };
+
+  const SCHEDULE_CONTEXT: Record<number, string> = {
+    3: "discharge into the environment based on the legal notice No.120 of EMCA, 2006",
+    5: "discharge into public sewers based on the legal notice No.120 of EMCA, 2006",
+    6: "discharge of treated effluent into the environment based on the legal notice No.120 of EMCA, 2006",
+  };
+
+  const specHeader = isWaste && sample.waste_schedule
+    ? SCHEDULE_SPEC_HEADERS[sample.waste_schedule] ?? "NEMA STANDARD"
+    : "KS EAS 12:2018\nTreated Potable Water Limit";
+
+  const scheduleContext = isWaste && sample.waste_schedule
+    ? SCHEDULE_CONTEXT[sample.waste_schedule] ?? "the applicable NEMA standard"
+    : "KS EAS 12:2018 specifications for treated potable water";
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8">
       <div className="bg-white rounded-lg shadow-xl max-w-[800px] w-full mx-4">
@@ -224,7 +247,7 @@ export default function TestReportPrint({ sampleId, onClose }: TestReportPrintPr
                   <td style={{ padding: "2px 4px" }}>{receivedDate}</td>
                 </tr>
                 <tr>
-                  <td style={{ padding: "2px 4px" }}><strong>CLIENT CONTACT:</strong></td>
+                  <td style={{ padding: "2px 4px" }}><strong>CONTACT PERSON:</strong></td>
                   <td style={{ padding: "2px 4px", textTransform: "uppercase" }}>{customer?.contact_person || "—"}{customer?.phone ? ` - ${customer.phone}` : ""}</td>
                   <td style={{ padding: "2px 4px" }}></td>
                   <td style={{ padding: "2px 4px", textAlign: "right" }}><strong>ANALYSIS DATE:</strong></td>
@@ -249,20 +272,27 @@ export default function TestReportPrint({ sampleId, onClose }: TestReportPrintPr
             {/* Results table */}
             <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "8px", fontSize: "10px" }}>
               <thead>
-                <tr style={{ background: "#333", color: "#fff" }}>
-                  <td colSpan={5} style={{ border: "1px solid #000", padding: "4px 5px", fontWeight: "bold", textTransform: "uppercase" }}>
-                    PHYSIO-CHEMICAL TEST
-                  </td>
-                </tr>
                 <tr style={{ background: "#e0e0e0" }}>
-                  <th style={{ border: "1px solid #000", padding: "3px 5px", textAlign: "left" }}></th>
+                  <th style={{ border: "1px solid #000", padding: "3px 5px", textAlign: "left" }}>TEST</th>
                   <th style={{ border: "1px solid #000", padding: "3px 5px", textAlign: "left" }}>METHOD</th>
                   <th style={{ border: "1px solid #000", padding: "3px 5px", textAlign: "center" }}>RESULTS</th>
-                  <th style={{ border: "1px solid #000", padding: "3px 5px", textAlign: "center" }}>KS EAS 12:2018<br />Treated Potable water limit</th>
+                  <th style={{ border: "1px solid #000", padding: "3px 5px", textAlign: "center" }}>
+                    {specHeader.split("\n").map((line, i) => (
+                      <span key={i}>{line}{i < specHeader.split("\n").length - 1 && <br />}</span>
+                    ))}
+                  </th>
                   <th style={{ border: "1px solid #000", padding: "3px 5px", textAlign: "center" }}>REMARKS</th>
                 </tr>
               </thead>
               <tbody>
+                {/* Physio-chemical section header — only for non-waste */}
+                {!isWaste && physicochemical.length > 0 && (
+                  <tr style={{ background: "#333", color: "#fff" }}>
+                    <td colSpan={5} style={{ border: "1px solid #000", padding: "4px 5px", fontWeight: "bold", textTransform: "uppercase" }}>
+                      Physio-Chemical Test
+                    </td>
+                  </tr>
+                )}
                 {physicochemical.map((item) => {
                   const tr = resultByCatalog[item.id];
                   const value = tr?.result_value || "ND";
@@ -273,23 +303,22 @@ export default function TestReportPrint({ sampleId, onClose }: TestReportPrintPr
                       <td style={{ border: "1px solid #000", padding: "2px 5px" }}>{item.method_name || "—"}</td>
                       <td style={{ border: "1px solid #000", padding: "2px 5px", textAlign: "center" }}>{value}</td>
                       <td style={{ border: "1px solid #000", padding: "2px 5px", textAlign: "center" }}>{item.standard_limit || "NS"}</td>
-                      <td style={{ border: "1px solid #000", padding: "2px 5px", textAlign: "center", fontWeight: compliance === "NON-COMPLIANT" ? "bold" : "normal" }}>
+                      <td style={{ border: "1px solid #000", padding: "2px 5px", textAlign: "center",
+                          color: compliance === "NON-COMPLIANT" ? "#c00" : compliance === "COMPLIANT" ? "#006600" : undefined,
+                          fontWeight: compliance === "NON-COMPLIANT" ? "bold" : "normal" }}>
                         {compliance || "NS"}
                       </td>
                     </tr>
                   );
                 })}
-              </tbody>
-
-              {/* Microbiological */}
-              <thead>
-                <tr style={{ background: "#333", color: "#fff" }}>
-                  <td colSpan={5} style={{ border: "1px solid #000", padding: "4px 5px", fontWeight: "bold", textTransform: "uppercase" }}>
-                    MICROBIOLOGICAL TEST
-                  </td>
-                </tr>
-              </thead>
-              <tbody>
+                {/* Microbiological section header — only for non-waste */}
+                {!isWaste && microbiological.length > 0 && (
+                  <tr style={{ background: "#333", color: "#fff" }}>
+                    <td colSpan={5} style={{ border: "1px solid #000", padding: "4px 5px", fontWeight: "bold", textTransform: "uppercase" }}>
+                      Microbiological Test
+                    </td>
+                  </tr>
+                )}
                 {microbiological.map((item) => {
                   const tr = resultByCatalog[item.id];
                   const value = tr?.result_value || "ND";
@@ -300,7 +329,9 @@ export default function TestReportPrint({ sampleId, onClose }: TestReportPrintPr
                       <td style={{ border: "1px solid #000", padding: "2px 5px" }}>{item.method_name || "—"}</td>
                       <td style={{ border: "1px solid #000", padding: "2px 5px", textAlign: "center" }}>{value}</td>
                       <td style={{ border: "1px solid #000", padding: "2px 5px", textAlign: "center" }}>{item.standard_limit || "NS"}</td>
-                      <td style={{ border: "1px solid #000", padding: "2px 5px", textAlign: "center", fontWeight: compliance === "NON-COMPLIANT" ? "bold" : "normal" }}>
+                      <td style={{ border: "1px solid #000", padding: "2px 5px", textAlign: "center",
+                          color: compliance === "NON-COMPLIANT" ? "#c00" : compliance === "COMPLIANT" ? "#006600" : undefined,
+                          fontWeight: compliance === "NON-COMPLIANT" ? "bold" : "normal" }}>
                         {compliance || "NS"}
                       </td>
                     </tr>
@@ -311,13 +342,16 @@ export default function TestReportPrint({ sampleId, onClose }: TestReportPrintPr
 
             {/* Notes */}
             <div style={{ fontSize: "9px", margin: "8px 0", lineHeight: "1.5" }}>
-              <p><strong>NS:</strong> No Set Standard, <strong>ND:</strong> Not Detectable, <strong>TNTC:</strong> Too Numerous to count, <strong>KS:</strong> Kenya Standard, <strong>EAS:</strong> East African Standard, <strong>APHA:</strong> American Public Health Association, potable water: water that is safe and suitable for human consumption, <strong>CFU:</strong> Colony forming units.<strong>SPP:</strong> species, <strong>ISO:</strong> International Organisation for Standardisation.</p>
+              {isWaste
+                ? <p><strong>NS:</strong> No Set Standard, <strong>ND:</strong> Not Detectable, <strong>TNTC:</strong> Too numerous to count, <strong>USEPA:</strong> United States Environmental Protection Agency, <strong>APHA:</strong> American Public Health Association. <strong>NEMA:</strong> National Environmental Management Authority.</p>
+                : <p><strong>NS:</strong> No Set Standard, <strong>ND:</strong> Not Detectable, <strong>TNTC:</strong> Too Numerous to count, <strong>KS:</strong> Kenya Standard, <strong>EAS:</strong> East African Standard, <strong>APHA:</strong> American Public Health Association, <strong>CFU:</strong> Colony forming units. <strong>ISO:</strong> International Organisation for Standardisation.</p>
+              }
             </div>
 
             {/* Disclaimer */}
-            <div style={{ fontSize: "9px", margin: "8px 0", fontStyle: "italic", lineHeight: "1.4" }}>
-              <p><strong style={{ fontStyle: "normal", textDecoration: "underline" }}>DISCLAIMER.</strong></p>
-              <p>These results only apply to the sample submitted and the recommendations/comments are only based on the tested parameters.</p>
+            <div style={{ fontSize: "9px", margin: "8px 0", lineHeight: "1.4" }}>
+              <p><strong style={{ textDecoration: "underline" }}>DISCLAIMER</strong></p>
+              <p>These results only apply to the sample submitted and the recommendations/comments are only based on the tested parameters. The laboratory will not be held responsible for any sampling errors, which may include improper collection techniques, contamination during the sampling process, or inadequate sample representation.</p>
               <p>The test report shall not be reproduced without the written approval of Aquacheck Laboratories Ltd.</p>
             </div>
 
@@ -325,19 +359,16 @@ export default function TestReportPrint({ sampleId, onClose }: TestReportPrintPr
             {hasNonCompliant && (
               <div style={{ fontSize: "10px", margin: "8px 0", lineHeight: "1.4" }}>
                 <p><strong style={{ textDecoration: "underline" }}>COMMENTS.</strong></p>
-                <p>
-                  The sample does not comply with KS EAS 12:2018 specifications for treated potable water.
-                  {nonCompliantItems.length > 0 && (
-                    <> The {nonCompliantItems.map((i) => i.name).join(", ")} exceeded the set limit.</>
-                  )}
-                </p>
-                <p>Further treatment is therefore recommended.</p>
+                {isWaste
+                  ? <p>The parameters; {nonCompliantItems.map((i) => i.name).join(", ")} do not meet the set specifications for {scheduleContext}. Treatment is therefore recommended.</p>
+                  : <p>The sample does not comply with {scheduleContext}. The {nonCompliantItems.map((i) => i.name).join(", ")} exceeded the set limit. Further treatment is therefore recommended.</p>
+                }
               </div>
             )}
             {!hasNonCompliant && allResults.length > 0 && (
               <div style={{ fontSize: "10px", margin: "8px 0", lineHeight: "1.4" }}>
                 <p><strong style={{ textDecoration: "underline" }}>COMMENTS.</strong></p>
-                <p>The sample complies with KS EAS 12:2018 specifications for treated potable water.</p>
+                <p>All tested parameters comply with {scheduleContext}.</p>
               </div>
             )}
 

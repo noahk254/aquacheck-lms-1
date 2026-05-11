@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Download, Send } from "lucide-react";
 import { format } from "date-fns";
@@ -74,11 +74,18 @@ export default function ReportsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["reports"] }),
   });
 
-  const { register, handleSubmit, watch, formState: { errors }, reset } = useForm<FormData>({
+  const SCHEDULE_SPEC_HEADERS: Record<number, string> = {
+    3: "NEMA STANDARD FOR EFFLUENT WATER; THIRD SCHEDULE. Maximum levels Permissible.",
+    4: "NEMA MONITORING GUIDE; FOURTH SCHEDULE.",
+    5: "NEMA STANDARD FOR EFFLUENT WATER; FIFTH SCHEDULE. Maximum levels Permissible.",
+    6: "NEMA MONITORING STANDARD; SIXTH SCHEDULE.",
+  };
+
+  const { register, handleSubmit, watch, setValue, formState: { errors }, reset } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       report_type: "test_report",
-      report_title: "Laboratory Test Report",
+      report_title: "TEST REPORT",
       overall_status: "COMPLETE",
       classification: "",
       client_reference: "",
@@ -87,7 +94,7 @@ export default function ReportsPage() {
       sampled_by: "AQUACHECK LABORATORIES LTD",
       sample_lab_id: "",
       analysis_date: "",
-      specification_title: "KS EAS 12:2018",
+      specification_title: "",
       disclaimer: "",
       authorizer_name: "Victor Mutai",
       authorizer_title: "Water Chemist",
@@ -98,7 +105,20 @@ export default function ReportsPage() {
   });
 
   const selectedContractId = Number(watch("contract_id") || 0);
+  const selectedSampleId = Number(watch("sample_id") || 0);
   const filteredSamples = samples.filter((sample: Sample) => sample.contract_id === selectedContractId);
+
+  // Auto-set specification_title from the selected sample's waste_schedule
+  useEffect(() => {
+    if (!selectedSampleId) return;
+    const sample = samples.find((s: Sample) => s.id === selectedSampleId);
+    if (!sample) return;
+    if (sample.waste_schedule && SCHEDULE_SPEC_HEADERS[sample.waste_schedule]) {
+      setValue("specification_title", "");  // leave blank → backend uses schedule-based header
+    } else {
+      setValue("specification_title", "");  // leave blank for dialysis/potable too → backend uses "SPECIFICATION"
+    }
+  }, [selectedSampleId, samples]);  // eslint-disable-line
 
   const sampleCodeById = new Map<number, string>(samples.map((sample: Sample) => [sample.id, sample.sample_code]));
 
@@ -209,7 +229,7 @@ export default function ReportsPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input label="Analysis Date" type="date" error={errors.analysis_date?.message} {...register("analysis_date")} />
-            <Input label="Specification Header" error={errors.specification_title?.message} {...register("specification_title")} placeholder="KS EAS 12:2018" />
+            <Input label="Specification Header (leave blank to auto-detect from sample schedule)" error={errors.specification_title?.message} {...register("specification_title")} placeholder="Auto-detected from sample schedule" />
           </div>
           <Input label="Classification / Verdict" error={errors.classification?.message} {...register("classification")} placeholder="e.g. NPOTABLE" />
           <div className="grid grid-cols-2 gap-4">

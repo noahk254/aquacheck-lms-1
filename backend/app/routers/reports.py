@@ -42,15 +42,68 @@ def _format_date(value):
     return str(value)
 
 
-def _result_sections(test_results, content: dict):
+_SCHEDULE_SPEC_HEADERS = {
+    3: "NEMA STANDARD FOR EFFLUENT WATER; THIRD SCHEDULE.\nMaximum levels Permissible.",
+    4: "NEMA MONITORING GUIDE;\nFOURTH SCHEDULE.",
+    5: "NEMA STANDARD FOR EFFLUENT;\nFIFTH SCHEDULE.\n(Public Sewer Discharge)",
+    6: "NEMA MONITORING STANDARD;\nSIXTH SCHEDULE.",
+}
+
+_SCHEDULE_CONTEXT = {
+    3: "discharge into the environment",
+    5: "discharge into public sewers",
+    6: "discharge of treated effluent into the environment",
+}
+
+
+def _schedule_ns_note(waste_schedule):
+    base = "NS: No Set Standard, ND: Not Detectable, TNTC: Too numerous to count, USEPA: United States Environmental Protection Agency, APHA: American Public Health Association."
+    if waste_schedule:
+        return base + " NEMA: National Environmental Management Authority."
+    return base + " KS: Kenya Standard, EAS: East African Standard."
+
+
+def _remarks_para(remarks, style):
+    text = str(remarks) if remarks and remarks != "—" else "—"
+    upper = text.upper()
+    if "NON-COMPLIANT" in upper:
+        return Paragraph(f'<font color="#dc2626"><b>{text}</b></font>', style)
+    if "COMPLIANT" in upper:
+        return Paragraph(f'<font color="#16a34a">{text}</font>', style)
+    return text
+
+
+def _auto_comment(sample, result_sections):
+    if not sample or not sample.waste_schedule:
+        return None
+    non_compliant = [
+        row.get("parameter", "")
+        for section in result_sections
+        for row in section.get("rows", [])
+        if "NON-COMPLIANT" in str(row.get("remarks", "")).upper()
+    ]
+    if not non_compliant:
+        return f"All tested parameters comply with the applicable NEMA schedule {sample.waste_schedule} standards."
+    context = _SCHEDULE_CONTEXT.get(sample.waste_schedule, "the applicable standards")
+    param_list = ", ".join(p for p in non_compliant if p)
+    return (
+        f"The parameters; {param_list} do not meet the set specifications for {context} "
+        "based on the legal notice No.120 of EMCA, 2006. Treatment is therefore recommended."
+    )
+
+
+def _result_sections(test_results, content: dict, sample=None):
     manual_sections = content.get("result_sections")
     if isinstance(manual_sections, list) and manual_sections:
         return manual_sections
 
+    waste_schedule = getattr(sample, "waste_schedule", None) if sample else None
+    default_spec_header = _SCHEDULE_SPEC_HEADERS.get(waste_schedule, "SPECIFICATION")
+
     sections = OrderedDict()
     for result in test_results:
         raw = result.raw_observations or {}
-        section_name = raw.get("section") or "ANALYTICAL TEST"
+        section_name = raw.get("section") or "TEST"
         sections.setdefault(section_name, []).append(
             {
                 "parameter": raw.get("parameter_name") or (result.method.name if result.method else f"Method #{result.method_id}"),
@@ -68,7 +121,7 @@ def _result_sections(test_results, content: dict):
     return [
         {
             "title": title,
-            "specification_header": _content_value(content, "specification_title", "SPECIFICATION"),
+            "specification_header": _content_value(content, "specification_title", default_spec_header),
             "rows": rows,
         }
         for title, rows in sections.items()
@@ -181,6 +234,8 @@ def generate_pdf(report_id: int, db: Session = Depends(get_db), current_user: Us
             .all()
         )
 
+    waste_schedule = getattr(sample, "waste_schedule", None) if sample else None
+
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=2 * cm, bottomMargin=2 * cm)
     styles = getSampleStyleSheet()
@@ -189,6 +244,8 @@ def generate_pdf(report_id: int, db: Session = Depends(get_db), current_user: Us
     title_style = ParagraphStyle("title", parent=styles["Heading1"], textColor=colors.HexColor("#1A1A2E"), fontSize=16, alignment=1, spaceAfter=6)
     company_style = ParagraphStyle("company", parent=styles["Normal"], fontSize=8, leading=10, alignment=2)
     small_style = ParagraphStyle("small", parent=styles["Normal"], fontSize=8, leading=10)
+    cell_style = ParagraphStyle("cell", parent=styles["Normal"], fontSize=8, leading=9)
+    header_cell_style = ParagraphStyle("header_cell", parent=styles["Normal"], fontSize=8, leading=9, fontName="Helvetica-Bold", alignment=1)
 
     header_table = Table(
         [[
@@ -210,16 +267,27 @@ def generate_pdf(report_id: int, db: Session = Depends(get_db), current_user: Us
     story.append(Paragraph(_content_value(content, "report_title", "TEST REPORT"), title_style))
     story.append(Spacer(1, 0.15 * cm))
 
+    def _contact_person_value():
+        override = _content_value(content, "client_contact", None)
+        if override:
+            return override
+        if not customer:
+            return "N/A"
+        parts = [p for p in [customer.contact_person, customer.phone] if p]
+        return ", ".join(parts) if parts else "N/A"
+
     info_data = [
         ["SAMPLE DESCRIPTION:", sample.description if sample and sample.description else _content_value(content, "sample_description", "N/A"), "SAMPLING DATE:", _format_date(_content_value(content, "sampling_date", sample.collection_date if sample else None))],
         ["SUBMITTED BY:", _content_value(content, "submitted_by", customer.name if customer else "N/A"), "RECEIVED ON:", _format_date(_content_value(content, "received_on", sample.received_at if sample else None))],
-        ["CLIENT CONTACT:", _content_value(content, "client_contact", customer.phone if customer and customer.phone else customer.contact_person if customer else "N/A"), "ANALYSIS DATE:", _format_date(_content_value(content, "analysis_date", report.created_at))],
+        ["CONTACT PERSON:", _contact_person_value(), "ANALYSIS DATE:", _format_date(_content_value(content, "analysis_date", report.created_at))],
         ["SAMPLED BY:", _content_value(content, "sampled_by", "AQUACHECK LABORATORIES LTD"), "REPORT ISSUED ON:", _format_date(report.issued_at or _content_value(content, "report_issued_on", None))],
         ["SAMPLING LOCATION:", _content_value(content, "sampling_location", sample.collection_location if sample else "N/A"), "SAMPLE LAB ID:", _content_value(content, "sample_lab_id", sample.sample_code if sample else report.report_number)],
     ]
     info_table = Table(info_data, colWidths=[3.2 * cm, 5.3 * cm, 3.2 * cm, 5.3 * cm])
     info_table.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
@@ -228,15 +296,16 @@ def generate_pdf(report_id: int, db: Session = Depends(get_db), current_user: Us
     story.append(info_table)
     story.append(Spacer(1, 0.2 * cm))
 
-    result_sections = _result_sections(test_results, content)
+    result_sections = _result_sections(test_results, content, sample)
     if result_sections:
         for section in result_sections:
+            spec_header = section.get("specification_header", "SPECIFICATION")
             result_rows = [[
-                section.get("title", "TEST"),
-                "METHOD",
-                "RESULTS",
-                section.get("specification_header", _content_value(content, "specification_title", "SPECIFICATION")),
-                "REMARKS",
+                Paragraph(section.get("title", "TEST"), header_cell_style),
+                Paragraph("METHOD", header_cell_style),
+                Paragraph("RESULTS", header_cell_style),
+                Paragraph(spec_header.replace("\n", "<br/>"), header_cell_style),
+                Paragraph("REMARKS", header_cell_style),
             ]]
             for row in section.get("rows", []):
                 result_rows.append([
@@ -244,13 +313,12 @@ def generate_pdf(report_id: int, db: Session = Depends(get_db), current_user: Us
                     row.get("method", "—"),
                     row.get("result", "—"),
                     row.get("specification", "—"),
-                    row.get("remarks", "—"),
+                    _remarks_para(row.get("remarks", "—"), cell_style),
                 ])
 
             results_table = Table(result_rows, colWidths=[5.5 * cm, 4.1 * cm, 1.5 * cm, 3.2 * cm, 2.7 * cm])
             results_table.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e5e7eb")),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#9ca3af")),
                 ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
                 ("FONTSIZE", (0, 0), (-1, -1), 8),
@@ -262,23 +330,28 @@ def generate_pdf(report_id: int, db: Session = Depends(get_db), current_user: Us
     else:
         story.append(Paragraph("No analytical results are linked to this report yet.", styles["Normal"]))
 
+    ns_note = _content_value(content, "ns_definition", None) or _schedule_ns_note(waste_schedule)
     story.append(Spacer(1, 0.2 * cm))
-    story.append(Paragraph(f"<b>NS:</b> {_content_value(content, 'ns_definition', 'No Set Standard, ND: Not Detectable, TTC: Too Numerous to count, KS: Kenya Standard, EAS: East African Standard, APHA: American Public Health Association standardisation.')}", small_style))
+    story.append(Paragraph(f"<b>NS:</b> {ns_note}", small_style))
     story.append(Paragraph("<b>DISCLAIMER</b>", small_style))
     story.append(Paragraph(
         _content_value(
             content,
             "disclaimer",
-            "These results only apply to the sample submitted and the recommendations/comments are only based on the tested parameters. The test report shall not be reproduced without the written approval of Aquacheck Laboratories Ltd.",
+            "These results only apply to the sample submitted and the recommendations/comments are only based on the tested parameters. "
+            "The laboratory will not be held responsible for any sampling errors, which may include improper collection techniques, "
+            "contamination during the sampling process, or inadequate sample representation. "
+            "The test report shall not be reproduced without the written approval of Aquacheck Laboratories Ltd.",
         ),
         small_style,
     ))
     story.append(Paragraph("<b>COMMENTS.</b>", small_style))
+    auto_comment = _auto_comment(sample, result_sections)
     story.append(Paragraph(
         _content_value(
             content,
             "final_comment",
-            "Results reflect the items tested and should be interpreted together with the reported method, sample details, and decision rules.",
+            auto_comment or "Results reflect the items tested and should be interpreted together with the reported method, sample details, and decision rules.",
         ),
         styles["Normal"],
     ))

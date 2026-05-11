@@ -11,6 +11,8 @@ class SampleBase(BaseModel):
     sample_type: Optional[str] = None
     sample_category: Optional[SampleCategory] = None
     waste_schedule: Optional[int] = None
+    waste_industry_type: Optional[str] = None
+    discharge_destination: Optional[str] = None
     collection_date: Optional[date] = None
     collection_location: Optional[str] = None
     gps_coordinates: Optional[str] = None
@@ -35,6 +37,8 @@ class SampleUpdate(BaseModel):
     sample_type: Optional[str] = None
     sample_category: Optional[SampleCategory] = None
     waste_schedule: Optional[int] = None
+    waste_industry_type: Optional[str] = None
+    discharge_destination: Optional[str] = None
     collection_date: Optional[date] = None
     collection_location: Optional[str] = None
     gps_coordinates: Optional[str] = None

@@ -208,6 +208,8 @@ export interface Sample {
   sample_type?: string;
   sample_category?: SampleCategory;
   waste_schedule?: number;
+  waste_industry_type?: string;
+  discharge_destination?: string;
   collection_date?: string;
   collection_location?: string;
   gps_coordinates?: string;

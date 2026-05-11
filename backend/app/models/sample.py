@@ -32,6 +32,8 @@ class Sample(Base):
     sample_type = Column(String, nullable=True)
     sample_category = Column(SAEnum(SampleCategory), nullable=True)
     waste_schedule = Column(Integer, nullable=True)
+    waste_industry_type = Column(String, nullable=True)
+    discharge_destination = Column(String, nullable=True)
     collection_date = Column(Date, nullable=True)
     collection_location = Column(String, nullable=True)
     gps_coordinates = Column(String, nullable=True)
