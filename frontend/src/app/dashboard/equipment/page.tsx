@@ -8,7 +8,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/Button";
 import { Table } from "@/components/ui/Table";
 import { Modal } from "@/components/ui/Modal";
-import { EquipmentStatusBadge } from "@/components/ui/Badge";
+import { Badge, EquipmentStatusBadge } from "@/components/ui/Badge";
 import { Input, Select, Textarea } from "@/components/ui/Input";
 import { equipmentApi, calibrationApi } from "@/lib/api";
 import type { Equipment, CalibrationRecord, CalibrationResult } from "@/lib/types";
@@ -28,6 +28,7 @@ const addSchema = z.object({
   calibration_due_date: z.string().optional(),
   last_calibration_date: z.string().optional(),
   calibration_certificate_ref: z.string().optional(),
+  is_active: z.boolean().optional(),
 });
 type AddFormData = z.infer<typeof addSchema>;
 
@@ -274,10 +275,15 @@ export default function EquipmentPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["equipment"] }); setShowCreate(false); reset(); },
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: (id: number) => equipmentApi.toggleActive(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["equipment"] }); },
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, is_active }: { id: number; is_active: boolean }) =>
+      equipmentApi.update(id, { is_active }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["equipment"] });
+      qc.invalidateQueries({ queryKey: ["equipment-calibration-due"] });
+    },
   });
+
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm<AddFormData>({ resolver: zodResolver(addSchema) });
 
@@ -287,15 +293,6 @@ export default function EquipmentPage() {
     { key: "model", header: "Model", render: (r: Equipment) => <span className="text-gray-600 text-xs">{r.model ?? "—"}</span> },
     { key: "serial_number", header: "Serial #", render: (r: Equipment) => <span className="font-mono text-xs">{r.serial_number ?? "—"}</span> },
     { key: "status", header: "Status", render: (r: Equipment) => <EquipmentStatusBadge status={r.status} /> },
-    {
-      key: "is_active",
-      header: "Active",
-      render: (r: Equipment) => (
-        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${r.is_active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-          {r.is_active ? "Active" : "Inactive"}
-        </span>
-      ),
-    },
     { key: "last_calibration_date", header: "Last Cal.", render: (r: Equipment) => <span className="text-xs text-gray-500">{r.last_calibration_date ? format(new Date(r.last_calibration_date), "MMM d, yyyy") : "—"}</span> },
     {
       key: "calibration_due_date", header: "Due Date", render: (r: Equipment) => {
@@ -306,15 +303,13 @@ export default function EquipmentPage() {
       }
     },
     {
+      key: "is_active", header: "Active", render: (r: Equipment) => (
+        <Badge variant={r.is_active ? "success" : "gray"}>{r.is_active ? "Active" : "Inactive"}</Badge>
+      )
+    },
+    {
       key: "actions", header: "", render: (r: Equipment) => (
-        <div className="flex items-center gap-1 justify-end">
-          <button
-            onClick={(e) => { e.stopPropagation(); toggleMutation.mutate(r.id); }}
-            className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded transition-colors ${r.is_active ? "text-red-600 hover:bg-red-50" : "text-green-600 hover:bg-green-50"}`}
-            title={r.is_active ? "Deactivate" : "Activate"}
-          >
-            {r.is_active ? <CircleX className="w-3.5 h-3.5" /> : <CircleCheck className="w-3.5 h-3.5" />}
-            {r.is_active ? "Deactivate" : "Activate"}
+        <div className="flex gap-1">
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); setHistoryEquipment(r); }}
@@ -372,6 +367,15 @@ export default function EquipmentPage() {
             <Input label="Calibration Due Date" type="date" {...register("calibration_due_date")} />
           </div>
           <Input label="Calibration Certificate Ref." {...register("calibration_certificate_ref")} placeholder="e.g. CERT-2024-0042" />
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              defaultChecked
+              {...register("is_active")}
+              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            Active
+          </label>
           <div className="flex gap-3 justify-end pt-2">
             <Button type="button" variant="secondary" onClick={() => { setShowCreate(false); reset(); }}>Cancel</Button>
             <Button type="submit" loading={createMutation.isPending}>Add Equipment</Button>

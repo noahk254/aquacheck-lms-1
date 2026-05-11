@@ -267,7 +267,7 @@ export interface Equipment {
   last_calibration_date?: string;
   calibration_certificate_ref?: string;
   location?: string;
-  is_active: number;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -461,6 +461,7 @@ export interface InventoryItem {
   storage_location?: string;
   storage_conditions?: string;
   unit_cost?: number;
+  expiry_date?: string;
   is_active: number;
   is_low_stock: boolean;
   notes?: string;
