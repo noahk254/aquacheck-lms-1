@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -9,6 +10,124 @@ from app.models.user import UserRole
 from app.models.test_catalog import TestCatalogItem, TestCategory
 
 router = APIRouter(prefix="/test-catalog", tags=["Test Catalog"])
+
+# ─── Schedule 4 — Industry types (EMCA Water Quality Regulations 2024) ────────
+
+SCHEDULE_4_INDUSTRIES = [
+    ("oil_gas",              "Oil and Gas"),
+    ("fuel_dispensing",      "Fuel Dispensing Stations"),
+    ("dairy",                "Dairy Products"),
+    ("grain_mills",          "Grain Mills"),
+    ("canned_fruits_veg",    "Canned Fruits and Vegetables"),
+    ("canned_seafoods",      "Canned and Preserved Sea Foods"),
+    ("sugar_processing",     "Sugar Processing"),
+    ("textiles",             "Textiles"),
+    ("cement",               "Cement Manufacturing"),
+    ("feedlots",             "Feedlots"),
+    ("electroplating",       "Electroplating"),
+    ("organic_chemicals",    "Organic Chemicals"),
+    ("inorganic_chemicals",  "Inorganic Chemicals"),
+    ("plastics_synthetics",  "Plastics and Synthetics"),
+    ("soap_detergents",      "Soap and Detergents"),
+    ("fertilizer",           "Fertilizer Manufacturing"),
+    ("petroleum_refining",   "Petroleum Refining"),
+    ("iron_steel",           "Iron and Steel Manufacturing"),
+    ("non_ferrous",          "Non-Ferrous Metal Manufacturing"),
+    ("phosphate_manufacturing", "Phosphate Manufacturing"),
+    ("steam_electric",       "Steam Electric Power Generating"),
+    ("ferro_alloy",          "Ferro Alloy Manufacturing"),
+    ("leather_tanning",      "Leather Tanning and Finishing"),
+    ("glass",                "Glass Manufacturing"),
+    ("extractives",          "Extractives"),
+    ("asbestos",             "Asbestos Manufacturing"),
+    ("rubber_processing",    "Rubber Processing"),
+    ("timber",               "Timber Products"),
+    ("pulp_paper",           "Pulp, Paper and Paperboard"),
+    ("builders_paper",       "Builders Paper and Paperboard Mills"),
+    ("meat_products",        "Meat Products"),
+    ("paving_roofing",       "Paving and Roofing Materials"),
+    ("intensive_chem_agri",  "Intensive Chemical Agriculture"),
+    ("edible_oils_fats",     "Edible Vegetable Oils and Fats"),
+    ("hotels_restaurants",   "Hotels, Restaurants and Game Lodges"),
+    ("bakeries",             "Bakeries and Wheat Confectioneries"),
+    ("breweries",            "Breweries (Malt)"),
+    ("soft_drinks",          "Soft Drinks and Carbonated Waters"),
+    ("sugar_confectionery",  "Sugar Confectionery"),
+    ("tobacco",              "Tobacco Processing"),
+    ("distilling",           "Distilling and Blending of Spirits"),
+    ("motor_vehicle",        "Motor Vehicle Assembly"),
+    ("paints_varnishes",     "Paints, Varnishes and Lacquers"),
+    ("batteries",            "Batteries Manufacture"),
+    ("cosmetics",            "Cosmetics"),
+    ("printing",             "Printing, Publishing and Allied Industry"),
+    ("domestic_sewage",      "Domestic Sewage System"),
+    ("pharmaceuticals",      "Pharmaceutical Industries"),
+    ("tea_coffee",           "Tea/Coffee Industries"),
+    ("slaughter_houses",     "Slaughter Houses"),
+    ("combined_sewage",      "Combined Sewage (Domestic + Industrial)"),
+]
+
+# Parameter name fragments matched against waste_3 / waste_5 catalog entries.
+# Source: Fourth Schedule, EMCA Water Quality Regulations 2024.
+_CORE = ["BOD", "Suspended Solids", "pH", "E.coli", "Total Coliforms",
+         "Oil and Grease", "Temperature", "COD", "Colour"]
+
+SCHEDULE_4_PARAMETERS: dict[str, list[str]] = {
+    "oil_gas":              _CORE + ["Phenols", "Chromium", "Sulphide"],
+    "fuel_dispensing":      _CORE + ["Phenols"],
+    "dairy":                _CORE + ["Total Phosphorus", "Ammonia"],
+    "grain_mills":          _CORE + ["Ammonia", "Total Phosphorus"],
+    "canned_fruits_veg":    _CORE + ["Total Phosphorus", "Ammonia"],
+    "canned_seafoods":      _CORE + ["Ammonia", "Total Phosphorus"],
+    "sugar_processing":     _CORE + ["Total Phosphorus", "Ammonia", "Dissolved Manganese"],
+    "textiles":             _CORE + ["Chromium", "Zinc", "Sulphide", "Total Phosphorus"],
+    "cement":               _CORE + ["Fluoride"],
+    "feedlots":             _CORE + ["Ammonia", "Total Phosphorus"],
+    "electroplating":       _CORE + ["Chromium", "Copper", "Nickel", "Zinc", "Cyanide",
+                                     "Lead", "Cadmium", "Mercury", "Arsenic"],
+    "organic_chemicals":    _CORE + ["Phenols", "Total Phosphorus", "Ammonia", "Sulphide"],
+    "inorganic_chemicals":  _CORE + ["Arsenic", "Lead", "Mercury", "Chromium", "Cadmium", "Fluoride"],
+    "plastics_synthetics":  _CORE + ["Phenols", "Chromium", "Zinc"],
+    "soap_detergents":      _CORE + ["Total Phosphorus", "Detergents"],
+    "fertilizer":           _CORE + ["Total Phosphorus", "Ammonia", "Fluoride", "Arsenic", "Lead"],
+    "petroleum_refining":   _CORE + ["Phenols", "Sulphide", "Chromium", "Lead"],
+    "iron_steel":           _CORE + ["Phenols", "Chromium", "Zinc", "Lead",
+                                     "Dissolved Iron", "Dissolved Manganese"],
+    "non_ferrous":          _CORE + ["Chromium", "Copper", "Nickel", "Zinc",
+                                     "Lead", "Cadmium", "Arsenic", "Mercury"],
+    "phosphate_manufacturing": _CORE + ["Fluoride", "Arsenic", "Lead"],
+    "steam_electric":       _CORE,
+    "ferro_alloy":          _CORE + ["Chromium", "Zinc", "Dissolved Manganese"],
+    "leather_tanning":      _CORE + ["Chromium", "Sulphide", "Lead", "Cyanide"],
+    "glass":                _CORE + ["Fluoride", "Lead"],
+    "extractives":          _CORE + ["Arsenic", "Lead", "Mercury", "Cadmium", "Dissolved Iron"],
+    "asbestos":             _CORE,
+    "rubber_processing":    _CORE + ["Zinc", "Sulphide"],
+    "timber":               _CORE + ["Phenols"],
+    "pulp_paper":           _CORE + ["Total Phosphorus", "Ammonia"],
+    "builders_paper":       _CORE,
+    "meat_products":        _CORE + ["Ammonia", "Total Phosphorus", "Sulphide"],
+    "paving_roofing":       _CORE,
+    "intensive_chem_agri":  _CORE + ["Total Phosphorus", "Ammonia", "Arsenic", "Lead"],
+    "edible_oils_fats":     _CORE + ["Total Phosphorus"],
+    "hotels_restaurants":   _CORE + ["Ammonia", "Total Phosphorus", "Detergents"],
+    "bakeries":             _CORE + ["Ammonia", "Total Phosphorus"],
+    "breweries":            _CORE + ["Total Phosphorus", "Ammonia", "Zinc"],
+    "soft_drinks":          _CORE + ["Ammonia"],
+    "sugar_confectionery":  _CORE + ["Ammonia", "Total Phosphorus"],
+    "tobacco":              _CORE,
+    "distilling":           _CORE + ["Total Phosphorus", "Ammonia"],
+    "motor_vehicle":        _CORE + ["Chromium", "Zinc", "Lead", "Copper"],
+    "paints_varnishes":     _CORE + ["Lead", "Chromium", "Zinc", "Cadmium"],
+    "batteries":            _CORE + ["Lead", "Cadmium", "Arsenic", "Mercury"],
+    "cosmetics":            _CORE + ["Lead", "Mercury", "Arsenic"],
+    "printing":             _CORE + ["Chromium", "Copper", "Zinc", "Lead"],
+    "domestic_sewage":      _CORE + ["Total Phosphorus", "Ammonia", "Lead", "Mercury"],
+    "pharmaceuticals":      _CORE + ["Lead", "Mercury", "Zinc", "Cadmium", "Arsenic"],
+    "tea_coffee":           _CORE + ["Copper", "Lead", "Dissolved Iron", "Dissolved Manganese", "Sulphide"],
+    "slaughter_houses":     _CORE + ["Ammonia", "Sulphide", "Lead", "Dissolved Iron"],
+    "combined_sewage":      _CORE + ["Total Phosphorus", "Ammonia", "Lead", "Mercury", "Dissolved Iron"],
+}
 
 # ─── Pydantic schemas ─────────────────────────────────────────────────────────
 
@@ -336,6 +455,49 @@ def seed_catalog(db: Session) -> int:
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
+
+@router.get("/industry-types")
+def list_industry_types():
+    """Return all Schedule 4 waste water industry types."""
+    return [{"value": v, "label": l} for v, l in SCHEDULE_4_INDUSTRIES]
+
+
+@router.get("/suggested", response_model=List[CatalogItemOut])
+def suggested_waste_parameters(
+    industry_type: str,
+    discharge_destination: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Return catalog items suggested for a waste water sample based on Schedule 4
+    (industry type) and the applicable standard (Schedule 3 for environment,
+    Schedule 5 for public sewer).
+    """
+    params = SCHEDULE_4_PARAMETERS.get(industry_type)
+    if params is None:
+        raise HTTPException(status_code=404, detail=f"Unknown industry type: {industry_type}")
+
+    water_type_map = {"environment": "waste_3", "public_sewer": "waste_5"}
+    water_type = water_type_map.get(discharge_destination)
+    if water_type is None:
+        raise HTTPException(
+            status_code=400,
+            detail="discharge_destination must be 'environment' or 'public_sewer'",
+        )
+
+    filters = [TestCatalogItem.name.ilike(f"%{p}%") for p in params]
+    items = (
+        db.query(TestCatalogItem)
+        .filter(
+            TestCatalogItem.water_type == water_type,
+            TestCatalogItem.is_active == True,  # noqa: E712
+            or_(*filters),
+        )
+        .order_by(TestCatalogItem.sort_order, TestCatalogItem.name)
+        .all()
+    )
+    return [CatalogItemOut.model_validate(i) for i in items]
+
 
 @router.get("", response_model=List[CatalogItemOut])
 def list_catalog(

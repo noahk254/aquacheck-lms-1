@@ -283,6 +283,12 @@ export const testCatalogApi = {
     api.put<TestCatalogItem>(`/test-catalog/${id}`, data),
   delete: (id: number) => api.delete(`/test-catalog/${id}`),
   seed: () => api.post<{ added: number; message: string }>("/test-catalog/seed"),
+  industryTypes: () =>
+    api.get<{ value: string; label: string }[]>("/test-catalog/industry-types"),
+  suggested: (industry_type: string, discharge_destination: string) =>
+    api.get<TestCatalogItem[]>("/test-catalog/suggested", {
+      params: { industry_type, discharge_destination },
+    }),
 };
 
 // ─── Calibration Records ──────────────────────────────────────────────────────

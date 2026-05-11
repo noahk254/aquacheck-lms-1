@@ -13,6 +13,14 @@ from app.services.barcode import generate_barcode
 
 router = APIRouter(prefix="/samples", tags=["Samples"])
 
+_DISCHARGE_TO_SCHEDULE = {"environment": 3, "public_sewer": 5}
+
+
+def _apply_discharge_schedule(data: dict) -> None:
+    dest = data.get("discharge_destination")
+    if dest and data.get("waste_schedule") is None:
+        data["waste_schedule"] = _DISCHARGE_TO_SCHEDULE.get(dest)
+
 
 def _next_sample_code(db: Session) -> str:
     year = datetime.now(timezone.utc).year
@@ -50,6 +58,7 @@ def create_sample(
     current_user: User = Depends(get_current_user),
 ):
     sample_data = payload.model_dump()
+    _apply_discharge_schedule(sample_data)
     if payload.contract_id is not None:
         contract = db.query(Contract).filter(Contract.id == payload.contract_id).first()
         if not contract:
@@ -96,6 +105,7 @@ def update_sample(
     if not sample:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sample not found")
     update_data = payload.model_dump(exclude_unset=True)
+    _apply_discharge_schedule(update_data)
     if "contract_id" in update_data and update_data["contract_id"] is not None:
         contract = db.query(Contract).filter(Contract.id == update_data["contract_id"]).first()
         if not contract:

@@ -32,6 +32,20 @@ services:
       timeout: 5s
       retries: 5
 
+  migrations:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aquacheck_migrations
+    command: alembic upgrade head
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://lims_user:lims_pass@db:5432/lims_db}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - lims_network
+
   backend:
     build:
       context: ./backend
@@ -53,27 +67,29 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
     networks:
       - lims_network
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://lim.aquachecklab.com/api}
-    container_name: aquacheck_frontend
-    restart: unless-stopped
-    env_file:
-      - .env
-    ports:
-      - "3002:3000"
-    environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://lim.aquachecklab.com/api}
-    volumes:
-      - ./frontend/src:/app/src
-      - ./frontend/public:/app/public
-    depends_on:
-      - backend
-    networks:
-      - lims_network
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #     args:
+  #       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://lim.aquachecklab.com/api}
+  #   container_name: aquacheck_frontend
+  #   restart: unless-stopped
+  #   env_file:
+  #     - .env
+  #   ports:
+  #     - "3002:3000"
+  #   environment:
+  #     NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://lim.aquachecklab.com/api}
+  #   volumes:
+  #     - ./frontend/src:/app/src
+  #     - ./frontend/public:/app/public
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - lims_network

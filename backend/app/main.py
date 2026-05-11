@@ -277,8 +277,8 @@ def ensure_schema_compatibility():
 def on_startup():
     try:
         Base.metadata.create_all(bind=engine)
-        ensure_schema_compatibility()
         print("[LIMS] Database tables ensured.")
+        ensure_schema_compatibility()
         from app.routers.calibration_records import CERT_DIR
         CERT_DIR.mkdir(parents=True, exist_ok=True)
         print(f"[LIMS] Calibration cert upload directory: {CERT_DIR}")
